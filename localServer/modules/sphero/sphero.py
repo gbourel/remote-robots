@@ -11,7 +11,7 @@ import yaml
 from .util import *
 
 # Debugging
-mock=False
+mock=False # TODO env
 
 #should it be in a different format?
 RobotControlService = "22bb746f2ba075542d6f726568705327"
@@ -351,6 +351,24 @@ class Sphero(object):
         name_data["color"] = str(response[33:36],'utf-8')
         return name_data
 
+    def get_power_state(self):
+        seq_num = self._send_command("ff","00","20",[])
+        response = self._notifier.wait_for_resp(seq_num)
+        pwr_data = {}
+        pwr_data["RecVer"] = hex(response[5])
+        pwr_data["PowerState"] = hex(response[6])
+        pwr_data["BattVoltage"] = response[7]*256 + response[8]
+        pwr_data["NumCharges"] = response[9]*256 + response[10]
+        pwr_data["TimeSinceChg"] = response[11]*256 + response[12]
+        return pwr_data
+
+    def get_voltage_trip_points(self):
+        seq_num = self._send_command("ff","00","23",[])
+        response = self._notifier.wait_for_resp(seq_num)
+        v_data = {}
+        v_data["Vlow"] = response[5]*256 + response[6]
+        v_data["Vcrit"] = response[7]*256 + response[8]
+        return v_data
 
     """ Sphero functionality """
 
@@ -358,7 +376,7 @@ class Sphero(object):
         time.sleep(secondes)
         return
 
-    def move(self, heading, resp=False):
+    def move(self, heading, speed=40, resp=False):
         """
         Roll the ball towards the heading at speed 40
 
@@ -400,7 +418,7 @@ class Sphero(object):
         self.command('01',data, resp=resp)
 
 
-    def set_rgb_led(self, red, green, blue, resp=False):
+    def set_rgb_led(self, red, green, blue, resp=False, permanent=False):
         """
         Set the color of Sphero's LED
 
@@ -408,12 +426,13 @@ class Sphero(object):
         green - (int) Color of green in range 0-255
         blue - (int) Color of blue in range 0-255
         resp - (bool) whether the code will wait for comfirmation from Sphero
+        permanent - (bool) if this color should be the permanent user color
         """
         #set data
         data = [red, green, blue, 0]
-        #send command
+        if (permanent):
+            data[3] = 1
         self.command("20", data, resp=resp)
-
 
     def get_rgb_led(self):
         """
@@ -434,8 +453,58 @@ class Sphero(object):
         else:
             return None
 
-    def _handle_mask(self,group_name, remove=False):
+    def get_power_state(self):
+        """
+        Return the power state.
+        ----
+        return - a structure with power state values
+        """
 
+        seq_num = self._send_command("ff","00","20",[])
+        resp = self._notifier.wait_for_resp(seq_num)
+
+        #parse the response packet and make sure it's correct
+        print('resp', resp)
+        if resp and resp[4] == 9:
+            MRSP = resp[2]
+            return {
+              'rec_ver': resp[5],
+              'power_state': resp[6],
+              'batt_voltage': int.from_bytes(resp[7:9], "big"),
+              'num_charges': int.from_bytes(resp[9:11], "big"),
+              'time_since_chg': int.from_bytes(resp[11:13], "big")
+            }
+        else:
+            return None
+
+
+    def get_permanent_option_flags(self):
+        """
+        Return the permanent option flags.
+        ----
+        return - a structure with flag values
+        """
+
+        #set the correct command
+        (seq_num, resp) = self.command("36",[])
+        #parse the response packet and make sure it's correct
+        if resp and resp[4] == 5:
+            MRSP = resp[2]
+            return {
+              'prevent_sleep_on_bt': bool(resp[9] & 0x01),
+              'vector_drive': bool(resp[9] & 0x02),
+              'charge_self_leveling': bool(resp[9] & 0x04),
+              'force_tail_led': bool(resp[9] & 0x08),
+              'motion_timeouts': bool(resp[9] & 0x10),
+              'retail_demo_mode': bool(resp[9] & 0x20),
+              'double_tap_awake_light': bool(resp[9] & 0x40),
+              'double_tap_awake_heavy': bool(resp[9] & 0x80)
+            }
+        else:
+            return None
+
+
+    def _handle_mask(self,group_name, remove=False):
         if(remove):
             optr = XOR_mask
         else:
@@ -446,23 +515,24 @@ class Sphero(object):
                     self._curr_data_mask = optr(self._curr_data_mask, bytes.fromhex(value["mask"]))
 
 
-    def _start_data_stream(self, group_name,rate):
+    def _start_data_stream(self, group_name, rate):
         ##  '\xff\xff\x02\x11\x01\x0e\x00(\x00\x01\x00\x00\x1c\x00\x00\x00\x00\x00\x00\x98'
 
         #handle mask
         self._handle_mask(group_name)
         #send the mask as data
         self._stream_rate = rate
-        self._send_data_command(rate,self._curr_data_mask,(0).to_bytes(4,'big'))
+        self._send_data_command(rate, self._curr_data_mask, (0).to_bytes(4,'big'))
 
-    def _send_data_command(self,rate,mask1,mask2,sample=1):
-        N = ((int)(400/rate)).to_bytes(2,byteorder='big')
+    def _send_data_command(self, rate, mask1, mask2, sample=4):
+        N = ((int)(400/rate)).to_bytes(2, byteorder='big')
         #N = (40).to_bytes(2,byteorder='big')
-        M = (sample).to_bytes(2,byteorder='big')
+        M = (sample).to_bytes(2, byteorder='big')
+        # Packet count 1-255 (or 0 for unlimited)
         PCNT = (0).to_bytes(1,'big')
-        #MASK2 = (mask2).to_bytes(4,'big')
-        data = [N,M, mask1 ,PCNT,mask2]
-        self.command("11",data, resp=True) #make sure sphero actully receive this
+        # MASK2 = (mask2).to_bytes(4,'big')
+        data = [N, M, mask1 , PCNT, mask2]
+        self.command("11", data, resp=True) #make sure sphero actully receive this
 
 
     def _stop_data_stream(self, group_name):
@@ -471,7 +541,7 @@ class Sphero(object):
         self._send_data_command(self._stream_rate,self._curr_data_mask,(0).to_bytes(4,'big'))
 
 
-    def start_gyro_callback(self,rate,callback):
+    def start_gyro_callback(self, rate, callback):
         """
         Set a gyro callback that streams the data to the callback
 
@@ -479,11 +549,11 @@ class Sphero(object):
         """
         name = "Gyro"
         #first we register the callback with the notifier
-        self._notifier.register_async_callback(name,callback)
+        self._notifier.register_async_callback(name, callback)
         #start data stream
         self._start_data_stream(name,rate)
 
-    def start_accel_callback(self,rate,callback):
+    def start_accel_callback(self, rate, callback):
         """
         Set a accelerator callback that streams the data to the callback
 
@@ -491,9 +561,9 @@ class Sphero(object):
         """
         name = "Accel"
         #first we register the callback with the notifier
-        self._notifier.register_async_callback(name,callback)
+        self._notifier.register_async_callback(name, callback)
         #start data stream
-        self._start_data_stream(name,rate)
+        self._start_data_stream(name, rate)
 
     def start_IMU_callback(self,rate,callback):
         """
@@ -507,6 +577,18 @@ class Sphero(object):
         #start data stream
         self._start_data_stream(name,rate)
 
+    def start_odometer_callback(self,rate,callback):
+        """
+        Set a odometer callback that streams the data to the callback
+
+        callback - (function) function that we will pass the information when there is a callback
+        """
+        name = "Odometer"
+        #first we register the callback with the notifier
+        self._notifier.register_async_callback(name, callback)
+        #start data stream
+        self._start_data_stream(name, rate)
+
     def stop_gyro_callback(self):
         self._stop_data_stream("Gyro")
 
@@ -515,6 +597,9 @@ class Sphero(object):
 
     def stop_IMU_callback(self):
         self._stop_data_stream("IMU")
+
+    def stop_odometer_callback(self):
+        self._stop_data_stream("Odometer")
 
     def set_stabilization(self,bool_flag, resp=False):
         """
@@ -632,7 +717,3 @@ def connect():
     d = init()
     d.connect()
     return d
-
-# roll angle, vitesse, durée
-
-#
