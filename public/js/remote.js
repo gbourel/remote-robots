@@ -422,7 +422,7 @@ function initClient(){
   document.getElementById('homebtn').addEventListener('click', () => { displayMenu(); history.pushState(null, '', '/'); });
   document.getElementById('login').addEventListener('click', login);
   document.getElementById('login2').addEventListener('click', login);
-  document.getElementById('commands').addEventListener('click', () => loadCommands(true));
+  document.getElementById('sphero-cmd').addEventListener('click', () => loadCommands(true));
   document.getElementById('profileMenuBtn').addEventListener('click', toggleMenu);
 
   // Save script on keystroke

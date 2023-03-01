@@ -1093,6 +1093,7 @@ code {
 }
 
 .c-card {
+  display: inline-block;
   cursor: pointer;
   background-color: #ffffff;
   transition: transform .1s ease-in-out;

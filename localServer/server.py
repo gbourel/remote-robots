@@ -45,6 +45,7 @@ def initDB():
 
 
 async def get_status(ws, data=None):
+  """Returns current status containing : programs list."""
   return status
 
 async def add_program(ws, data=None):
