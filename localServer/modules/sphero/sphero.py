@@ -464,7 +464,6 @@ class Sphero(object):
         resp = self._notifier.wait_for_resp(seq_num)
 
         #parse the response packet and make sure it's correct
-        print('resp', resp)
         if resp and resp[4] == 9:
             MRSP = resp[2]
             return {

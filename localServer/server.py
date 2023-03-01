@@ -4,11 +4,15 @@ import json
 import subprocess
 import sqlite3
 
+import time
+import sphero
+
+SERVER_HOST = "localhost"
+
 print("Communication avec Robot Sphero")
 
-status = {}
-# DEBUG
 status = {
+  'sphero': {},
   'programs': []
 }
 
@@ -17,8 +21,8 @@ DB_FILE="programs.db"
 db = sqlite3.connect(DB_FILE)
 cur = db.cursor()
 
-# Init database.
 def initDB():
+  """ Init local SQLite database."""
   cur.execute("""
     CREATE TABLE IF NOT EXISTS programs (
       id integer primary key,
@@ -49,6 +53,7 @@ async def get_status(ws, data=None):
   return status
 
 async def add_program(ws, data=None):
+  """Append program to current waiting list."""
   print(f"Add program {json.dumps(data)}\n")
   if(len(status["programs"]) > 0):
     data["state"] = "WAITING"
@@ -74,7 +79,8 @@ async def add_program(ws, data=None):
   return status
 
 async def start_program(ws, data=None):
-  print("Data ", data)
+  """Start program with provided id."""
+  # print("Data ", data)
   print(f"\nStart program {data['id']} {data['student']}:\n\n")
   for prgm in status["programs"]:
     if prgm["id"] == data["id"]:
@@ -98,12 +104,14 @@ async def start_program(ws, data=None):
   return status
 
 async def remove_program(ws, data=None):
+  """Remove program with provided id."""
   status["programs"].remove(data)
   val = cur.execute(f'UPDATE programs SET state="DELETED" WHERE id={data["id"]}')
   db.commit()
   return status
 
 async def move_up(ws, data=None):
+  """Move up program with provided id inwiating list."""
   idx = status["programs"].index(data)
   if idx > 0:
     print(status["programs"][idx-1])
@@ -114,6 +122,7 @@ async def move_up(ws, data=None):
   return status
 
 async def move_down(ws, data=None):
+  """Move down program with provided id inwiating list."""
   idx = status["programs"].index(data)
   if idx < len(status["programs"])-1:
     if status["programs"][idx]["state"] == 'READY':
@@ -131,8 +140,8 @@ handlers = {
   'move_down': move_down
 }
 
-# create handler for each connection
 async def handler(websocket, path):
+  """Creates websockets handler."""
   while True:
     data = await websocket.recv()
     msg = json.loads(data)
@@ -149,8 +158,26 @@ async def handler(websocket, path):
       res = { 'error': 'command error'}
     await websocket.send(json.dumps(res))
 
+def initSphero():
+  """Init sphero status."""
+  orb = sphero.connect()
+  time.sleep(0.5)
+
+  orb.set_rgb_led(0,40,0, permanent=True)
+  time.sleep(0.5)
+
+  status['sphero']['name'] = orb.get_device_name()
+  status['sphero']['power'] = orb.get_power_state()
+  print(orb.get_voltage_trip_points())
+  # max => 845 (8.45V)
+  # 700 => low
+  # 650 => critical low
+  print(f"Sphero status: {status['sphero']}")
+
 initDB()
-start_server = websockets.serve(handler, "localhost", 7007)
+start_server = websockets.serve(handler, SERVER_HOST, 7007)
+
+initSphero()
 
 print("En attente d'un programme...")
 asyncio.get_event_loop().run_until_complete(start_server)
