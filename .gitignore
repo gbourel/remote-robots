@@ -1,4 +1,4 @@
 node_modules/
 __pycache__
 
-localServer/programs.db
+spheroCmd/programs.db
