@@ -177,7 +177,7 @@ def initSphero():
 initDB()
 start_server = websockets.serve(handler, SERVER_HOST, 7007)
 
-initSphero()
+# initSphero()
 
 print("En attente d'un programme...")
 asyncio.get_event_loop().run_until_complete(start_server)
