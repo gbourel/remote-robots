@@ -18,7 +18,6 @@ let NSIX_LOGIN_URL = 'http://app.nsix.fr/connexion'
 let LCMS_URL = 'https://webamc.nsix.fr';
 let WS_URL = 'wss://webamc.nsix.fr';
 let COOKIE_DOMAIN = '.nsix.fr';
-let LOCAL_SERVER = 'ws://localhost:7007';
 
 if(dev) {
   NSIX_LOGIN_URL = 'http://ileauxsciences.test:4200/connexion';
@@ -29,6 +28,8 @@ if(dev) {
 
 let _user = null;
 let _token = null;
+
+let _currentType = null; // Current robot type
 
 let _over = false;  // python running
 
@@ -59,7 +60,7 @@ let main = null;
 
 function initPythonEditor() {
   _pythonEditor = CodeMirror(document.getElementById('pythonsrc'), {
-    value: "import sphero\n\norb = sphero.connect()\n\norb.set_rgb_led(0,120,0)\n\norb.move(0) # Se déplace direction 0°\norb.wait(1) # Attend 1s\n",
+    value: "",
     mode:  "python",
     lineNumbers: true,
     theme: 'monokai',
@@ -72,7 +73,24 @@ function initPythonEditor() {
   });
 }
 
-function displayCommands() {
+const infos = {
+  'sphero': {
+    'server': 'ws://localhost:7007',
+    'type': 'sphero',
+    'path': '/#sphero',
+    'title': 'Programmation du robot **Sphero** :',
+    'defaultSrc': 'import sphero\n\norb = sphero.connect()\n\norb.set_rgb_led(0,120,0)\n\norb.move(0) # Se déplace direction 0°\norb.wait(1) # Attend 1s\n'
+  },
+  'dobot': {
+    'server': 'ws://localhost:7008',
+    'type': 'dobot',
+    'path': '/#dobot',
+    'title': 'Programmation du bras robotisé **Dobot magician** :',
+    'defaultSrc': "import pydobot\n\ndevice = pydobot.Dobot()\n\n(x, y, z, r, j1, j2, j3, j4) = device.pose()\nprint(f'x:{x} y:{y} z:{z} r:{r} j1:{j1} j2:{j2} j3:{j3} j4:{j4}')\n\ndevice.move_to(x + 20, y, z, r, wait=True)\ndevice.move_to(x, y, z, r, wait=True)\n"
+  },
+};
+
+function displayCommands(info) {
   // const title = document.getElementById('title');
   const instruction = document.getElementById('instruction');
   const main = document.getElementById('main');
@@ -80,16 +98,14 @@ function displayCommands() {
   menu.style.transform = 'translate(0, 100vh)';
   main.classList.remove('hidden');
 
-  // if (_exercise) {
-  //   let prog = '';
-  let lastprog = localStorage.getItem(getProgKey());
-  if(!_pythonEditor) {
-    initPythonEditor();
-  }
+  let lastprog = localStorage.getItem(getProgKey(info.type));
+  if(!_pythonEditor) { initPythonEditor(); }
   if(lastprog && lastprog.length) {
     _pythonEditor.setValue(lastprog);
+  } else {
+    _pythonEditor.setValue(info.defaultSrc);
   }
-  instruction.innerHTML = marked.parse('Programmation du robot _Sphero_ :');
+  instruction.innerHTML = marked.parse(info.title);
 }
 
 // Display login required popup
@@ -106,13 +122,15 @@ function hideLoginPopup() {
 }
 
 // Load command view
-function loadCommands(pushHistory){
+function loadCommands(pushHistory, info){
   if(!_user) { return loginRequired(); }
   if(pushHistory) {
-    history.pushState(null, '', `/#commands`);
+    history.pushState(null, '', info.path);
   }
-  displayCommands();
+  _currentType = info;
+  displayCommands(info);
 }
+
 
 // Reload initial prog
 function resetProg(){
@@ -267,6 +285,7 @@ function login() {
   location.href = `${NSIX_LOGIN_URL}?dest=${current}`;
 }
 
+/** Récupère le token de connexion depuis le cookie associé. */
 function getAuthToken(){
   if(_token !== null) { return _token; }
   if(document.cookie) {
@@ -284,8 +303,10 @@ function getAuthToken(){
   return _token;
 }
 
+/** Télécharge le profil utilisateur depuis le LCMS. */
 function loadUser(cb) {
   let token = getAuthToken();
+  console.info('Token', token);
   if(token) {
     const meUrl = LCMS_URL + '/students/profile';
     const req = new Request(meUrl);
@@ -302,8 +323,6 @@ function loadUser(cb) {
       }
       return json;
     }).then(data => {
-      // console.info(JSON.stringify(data, '', ' '));
-      // console.info(data.student);
       cb(data.student);
     }).catch(err => {
       console.warn('Unable to fetch user', err);
@@ -314,18 +333,20 @@ function loadUser(cb) {
   }
 }
 
-function getProgKey(){
-  let key = 'prog'
+/** Renvoie la clef correspondant à l'utilisateur courant pour
+ * l'enregistrement en cache du programme. */
+function getProgKey(type){
+  let key = type || 'prog'
   if(_user) {
     key += '_' + _user.studentId;
   }
+  debug('progkey ' + key)
   return key;
 }
 
 function showLoading() {
   document.getElementById('loading').classList.remove('hidden');
 }
-
 function hideLoading() {
   document.getElementById('loading').classList.add('hidden');
 }
@@ -350,15 +371,17 @@ function logout() {
   location.reload();
 }
 
-const skExternalLibs = {
+//--------- SPHERO ---------//
+
+const skSpheroLibs = {
   './sphero.js': './lib/skulpt/externals/sphero.js',
   './snap.js': './lib/skulpt/externals/snap.js'
 };
 
 function builtinRead(file) {
-  if (skExternalLibs[file] !== undefined) {
+  if (skSpheroLibs[file] !== undefined) {
     return Sk.misceval.promiseToSuspension(
-      fetch(skExternalLibs[file]).then(
+      fetch(skSpheroLibs[file]).then(
         function (resp){ return resp.text(); }
       ));
   }
@@ -422,14 +445,15 @@ function initClient(){
   document.getElementById('homebtn').addEventListener('click', () => { displayMenu(); history.pushState(null, '', '/'); });
   document.getElementById('login').addEventListener('click', login);
   document.getElementById('login2').addEventListener('click', login);
-  document.getElementById('sphero-cmd').addEventListener('click', () => loadCommands(true));
+  document.getElementById('sphero-cmd').addEventListener('click', () => loadCommands(true, infos.sphero));
+  document.getElementById('dobot-cmd').addEventListener('click', () => loadCommands(true, infos.dobot));
   document.getElementById('profileMenuBtn').addEventListener('click', toggleMenu);
 
   // Save script on keystroke
   document.addEventListener('keyup', evt => {
     if(evt.target && evt.target.nodeName === 'TEXTAREA') {
       if(_pythonEditor){
-        localStorage.setItem(getProgKey(), _pythonEditor.getValue());
+        localStorage.setItem(getProgKey(_currentType), _pythonEditor.getValue());
       }
     }
   });
@@ -459,8 +483,10 @@ function initClient(){
           }
         });
       });
-      if(location.hash && location.hash.match('#commands')) {
-        loadCommands(true);
+      if(location.hash && location.hash.match('#sphero')) {
+        loadCommands(true, infos.sphero);
+      } else if(location.hash && location.hash.match('#dobot')) {
+        loadCommands(true, infos.dobot);
       }
     } else {
       document.getElementById('login').classList.remove('hidden');
@@ -471,6 +497,8 @@ function initClient(){
     hideLoading();
   });
 }
+
+//----- Programmes eleves -----/
 
 async function startPrgm(prgm) {
   debug('Start program', prgm);
@@ -535,8 +563,9 @@ async function refreshPrograms(status){
 }
 
 let _localSocket = null;
-function localConnect(){
-  _localSocket = new WebSocket(LOCAL_SERVER);
+/** Connection enseignant au serveur local. */
+function localConnect(info){
+  _localSocket = new WebSocket(info.server);
   debug('[LS] connection');
   // On new WS message
   _localSocket.onmessage = function (message) {
@@ -552,11 +581,16 @@ function localConnect(){
   _localSocket.onclose = function () {
     debug('[LS] disconnected');
     document.getElementById('missing-local-msg').classList.remove('hidden');
+    document.getElementById('empty-msg').classList.add('hidden');
   }
 
   _localSocket.onopen = function () {
     debug('[LS] connected');
     document.getElementById('missing-local-msg').classList.add('hidden');
+    document.getElementById('empty-msg').classList.remove('hidden');
+    document.getElementById('sphero-connect').classList.add('hidden');
+    document.getElementById('dobot-connect').classList.add('hidden');
+    document.getElementById('title').innerHTML = 'Contrôle du robot : ' + info.type ;
     _localSocket.send(JSON.stringify({'cmd': 'get_status'}));
     // _localSocket.send(JSON.stringify({
     //   'cmd': 'add_program',
@@ -570,16 +604,25 @@ function localConnect(){
   }
 }
 
+/** Connection au serveur local via webocket. */
+function connect(info) {
+  localConnect(info);
+}
+
 function initTeacher(){
   loadUser(async (user) => {
     // TODO session cache
     debug('User loaded', user);
 
+    document.getElementById('sphero-connect').addEventListener('click', () => connect(infos.sphero));
+    document.getElementById('dobot-connect').addEventListener('click', () => connect(infos.dobot));
+
+    document.getElementById('empty-msg').classList.add('hidden');
+
     if(user) {
       _user = user;
       document.getElementById('username').innerHTML = user.firstName || 'Moi';
       document.getElementById('profile-menu').classList.remove('hidden');
-      localConnect();
       // try {
       //   const res = await fetch(LOCAL_SERVER + '/status');
       //   const status = await res.json();

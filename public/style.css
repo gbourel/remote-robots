@@ -1303,6 +1303,19 @@ span.katex {
 
 /* Teacher view */
 
+ul {
+  list-style-type: square;
+  line-height: 2rem;
+}
+ul li {
+  padding: 8px;
+  border-radius: 2;
+  cursor: pointer;
+}
+ul li:hover {
+  background: #32b49e;
+}
+
 #programs-list {
   margin: 1.5rem 0;
   color:  #224;

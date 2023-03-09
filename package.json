@@ -10,6 +10,7 @@
     "npm-run-all": "^4.1.5"
   },
   "scripts": {
+    "connect_sphero": "cd spheroCmd && PYTHONPATH=modules python3 server.py",
     "dev": "live-server --host=ileauxsciences.test --port=7971 public",
     "start": "run-p --print-label dev"
   }

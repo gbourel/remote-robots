@@ -12,8 +12,13 @@ from .enums.ControlValues import ControlValues
 
 class Dobot:
 
-    def __init__(self, port, verbose=False):
+    def __init__(self, port=None, verbose=False):
         threading.Thread.__init__(self)
+
+        if (port == None):
+            available_ports = list_ports.comports()
+            print(f'available ports: {[x.device for x in available_ports]}')
+            port = available_ports[0].device
 
         self._on = True
         self.verbose = verbose
@@ -74,6 +79,7 @@ class Dobot:
         return response
 
     def _read_message(self):
+        # FIXME poll ?
         time.sleep(0.1)
         b = self.ser.read_all()
         if len(b) > 0:
@@ -333,3 +339,69 @@ class Dobot:
         j3 = struct.unpack_from('f', response.params, 24)[0]
         j4 = struct.unpack_from('f', response.params, 28)[0]
         return x, y, z, r, j1, j2, j3, j4
+
+    def get_jog_params(self):
+        msg = Message()
+        msg.id = CommunicationProtocolIDs.SET_GET_JOG_JOINT_PARAMS
+        response = self._send_command(msg)
+        val = {}
+        val["vj1"] = struct.unpack_from('f', response.params, 0)[0]
+        val["vj2"] = struct.unpack_from('f', response.params, 4)[0]
+        val["vj3"] = struct.unpack_from('f', response.params, 8)[0]
+        val["vj4"] = struct.unpack_from('f', response.params, 12)[0]
+        val["aj1"] = struct.unpack_from('f', response.params, 16)[0]
+        val["aj2"] = struct.unpack_from('f', response.params, 20)[0]
+        val["aj3"] = struct.unpack_from('f', response.params, 24)[0]
+        val["aj4"] = struct.unpack_from('f', response.params, 28)[0]
+
+        if self.verbose:
+            print("pydobot: vj1:%03.1f \
+                            vj2:%03.1f \
+                            vj3:%03.1f \
+                            vj4:%03.1f \
+                            aj1:%03.1f \
+                            aj2:%03.1f \
+                            aj3:%03.1f \
+                            aj4:%03.1f" %
+                  (val.vj1, val.vj2, val.vj3, val.vj4, val.aj1, val.aj2, val.aj3, val.aj4))
+        return val
+
+    def get_device_name(self):
+        msg = Message()
+        msg.id = CommunicationProtocolIDs.GET_SET_DEVICE_NAME
+        response = self._send_command(msg)
+        serial = None
+        if(response != None):
+            serial = struct.unpack_from('s', response.params, 0)[0]
+        return serial
+
+    def get_device_version(self):
+        msg = Message()
+        print('Message id', CommunicationProtocolIDs.GET_DEVICE_VERSION)
+        msg.id = CommunicationProtocolIDs.GET_DEVICE_VERSION
+        print('Message', msg)
+        response = self._send_command(msg)
+        print('Response', response)
+        val = None
+        if(response != None):
+            val = struct.unpack_from('s', response.params, 0)[0]
+            val += struct.unpack_from('s', response.params, 1)[0]
+            val += struct.unpack_from('s', response.params, 2)[0]
+        return val
+
+    def reset_pose(self):
+        msg = Message()
+        msg.id = CommunicationProtocolIDs.RESET_POSE
+        msg.ctrl = 0x01
+        msg.params = bytearray(bytes([0x00]))
+        msg.params.extend(bytearray(struct.pack('f', 0)))
+        msg.params.extend(bytearray(struct.pack('f', 0)))
+        response = self._send_command(msg, wait=False)
+        val = None
+        # if(response != None):
+        #     val = struct.unpack_from('s', response.params, 0)[0]
+        return val
+
+    def set_jog_cmd(self):
+
+        return

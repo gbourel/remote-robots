@@ -36,7 +36,7 @@ class Message:
                     self.checksum += int(self.params[i].encode('hex'), 16)
             self.checksum = self.checksum % 256
             self.checksum = 2 ** 8 - self.checksum
-            self.checksum = self.checksum % 255 # TODO verify this
+            # self.checksum = self.checksum % 255 # TODO verify this
             self.len = 0x02 + len(self.params)
 
     def bytes(self):

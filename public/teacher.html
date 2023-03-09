@@ -32,13 +32,18 @@
   <header class="p-4 rounded-t-lg">
     <h3>
       <img src="img/controller.png" alt="Logo" class="inline-block" width="56px">
-      <span id="title" class="text-blue-300 font-bold">Contrôle du robot Sphero</span>
+      <span id="title" class="text-blue-300 font-bold">Contrôle du robot : serveur</span>
     </h3>
     <svg id="progress" class="hidden"></svg>
     <p id="instruction"></p>
   </header>
   <main id="programs-list">
-    <div id="missing-local-msg">Attention : pas de connexion au server bluetooth local.</div>
+    <div id="missing-local-msg">Attention : pas de connexion au server bluetooth/usb local.
+    </div>
+    <ul>
+      <li id="sphero-connect">Sphero</li>
+      <li id="dobot-connect">Dobot</li>
+    </ul>
     <div id="empty-msg">Aucun programme reçu pour l'instant.</div>
     <div id="main-list"></div>
   </main>
