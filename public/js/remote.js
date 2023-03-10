@@ -1,6 +1,6 @@
 (function (){
 
-const VERSION = 'v0.4.3';
+const VERSION = 'v0.5.0';
 document.getElementById('version').textContent = VERSION;
 
 const host = window.location.host;
