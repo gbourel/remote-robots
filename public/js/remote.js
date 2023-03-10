@@ -1,6 +1,6 @@
 (function (){
 
-const VERSION = 'v0.5.0';
+const VERSION = 'v0.6.1';
 document.getElementById('version').textContent = VERSION;
 
 const host = window.location.host;
@@ -31,6 +31,8 @@ let _token = null;
 
 
 let _over = false;  // python running
+
+let _currentPrograms = [];
 
 // WS variables
 
@@ -308,7 +310,6 @@ function getAuthToken(){
 /** Télécharge le profil utilisateur depuis le LCMS. */
 function loadUser(cb) {
   let token = getAuthToken();
-  console.info('Token', token);
   if(token) {
     const meUrl = LCMS_URL + '/students/profile';
     const req = new Request(meUrl);
@@ -422,6 +423,13 @@ function sendProgram(){
   });
 }
 
+function remoteRunProgram(){
+  debug('[Start] Start program', _user.studentId);
+  sendWS('start_program', { 'type': _currentInfo.type }, res => {
+    debug('[Start] response', res);
+  });
+}
+
 function initClient(){
   // let purl = new URL(window.location.href);
   // if(purl && purl.searchParams) {
@@ -444,6 +452,7 @@ function initClient(){
   document.getElementById('logoutBtn').addEventListener('click', logout);
   document.getElementById('checkbtn').addEventListener('click', runit);
   document.getElementById('sendbtn').addEventListener('click', sendProgram);
+  document.getElementById('remoterunbtn').addEventListener('click', remoteRunProgram);
   document.getElementById('homebtn').addEventListener('click', () => { displayMenu(); history.pushState(null, '', '/'); });
   document.getElementById('login').addEventListener('click', login);
   document.getElementById('login2').addEventListener('click', login);
@@ -466,6 +475,27 @@ function initClient(){
   //     displayMenu();
   //   }
   // });
+
+  handlers['programs_status'] = [(data) => {
+    debug('Programs status', JSON.stringify(data, '', ' '));
+    if (_user && data?.type === _currentInfo?.type) {
+      let btn = document.getElementById('remoterunbtn');
+      let waitIdx = data.programs.studentIds.indexOf(_user.studentId);
+      if (waitIdx < 0) {
+        btn.classList.add('hidden');
+      } else {
+        btn.classList.remove('hidden');
+        if (waitIdx === 0) {
+          btn.innerHTML = '<span>Commander le robot</span><img src="img/play_white.png">';
+          btn.disabled = false;
+        } else {
+          btn.innerText = `${waitIdx+1}ème dans la file d'attente`;
+          btn.disabled = true;
+        }
+      }
+    }
+  }];
+
 
   loadUser(user => {
     // TODO session cache
@@ -532,13 +562,17 @@ async function deletePrgm(prgm) {
 async function refreshPrograms(status){
   let parent = document.getElementById('main-list');
   parent.innerHTML = '';
-  debug('Status', status);
+  debug('[PRGM] Status', status);
+  let prgmStatus = { studentIds: [] }
   if(!status.programs || status.programs.length === 0) {
+    _currentPrograms = []
     document.getElementById('empty-msg').classList.remove('hidden');
   } else {
+    _currentPrograms = status.programs;
     document.getElementById('empty-msg').classList.add('hidden');
     for (let p of status.programs) {
-      debug('Refresh program', p);
+      debug(' [PRGM] Refresh program', p);
+      prgmStatus.studentIds.push(p.studentId);
       let lineTemplate = document.querySelector('#prgm-line');
       let line = document.importNode(lineTemplate.content, true);
       line.querySelector('.name').textContent = p.student;
@@ -564,6 +598,9 @@ async function refreshPrograms(status){
       parent.appendChild(line);
     }
   }
+  // TODO send prgmStatus
+  debug(' [PRGM] Send programs status', prgmStatus);
+  sendWS('programs_status', { 'type': _currentInfo.type, 'status': prgmStatus });
 }
 
 let _localSocket = null;
@@ -669,6 +706,19 @@ handlers['__add_program'] = [(data) => {
   }));
 }];
 
+handlers['__start_program'] = [(data) => {
+  debug('Start program !', JSON.stringify(data, '', ' '));
+  if(_currentPrograms[0] && _currentPrograms[0].studentId === data.studentId) {
+    startPrgm(_currentPrograms[0]);
+    // FIXME feedback
+  } else {
+    // FIXME error
+  }
+}];
+
+
+let btn = document.getElementById('remoterunbtn');
+
 handlers['btsender_connected'] = [enableSend];
 handlers['btsender_disconnected'] = [disableSend];
 
@@ -758,6 +808,8 @@ async function connectWS (cb) {
           } else {
             list(content.data);
           }
+        } else {
+          debug(' [WS] Missing handler for event', content.event);
         }
       }
     }

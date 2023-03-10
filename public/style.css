@@ -1241,6 +1241,13 @@ ul {
   margin: auto;
 }
 
+#remoterunbtn img {
+  display: inline-block;
+  height: 1.3em;
+  margin-top: -0.2em;
+  padding: 0 0 0 .5em
+}
+
 /* Background */
 
 body {
