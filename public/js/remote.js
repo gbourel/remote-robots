@@ -29,7 +29,6 @@ if(dev) {
 let _user = null;
 let _token = null;
 
-let _currentType = null; // Current robot type
 
 let _over = false;  // python running
 
@@ -44,6 +43,23 @@ let _keepaliveTimeout = null;
 let _ws = null;
 let _idCounter = 0;
 
+let _currentInfo = null; // Current robot info
+const infos = {
+  'sphero': {
+    'server': 'ws://localhost:7007',
+    'type': 'sphero',
+    'path': '/#sphero',
+    'title': 'Programmation du robot **Sphero** :',
+    'defaultSrc': 'import sphero\n\norb = sphero.connect()\n\norb.set_rgb_led(0,120,0)\n\norb.move(0) # Se déplace direction 0°\norb.wait(1) # Attend 1s\n'
+  },
+  'dobot': {
+    'server': 'ws://localhost:7008',
+    'type': 'dobot',
+    'path': '/#dobot',
+    'title': 'Programmation du bras robotisé **Dobot magician** :',
+    'defaultSrc': "import pydobot\n\ndevice = pydobot.Dobot()\n\n(x, y, z, r, j1, j2, j3, j4) = device.pose()\nprint(f'x:{x} y:{y} z:{z} r:{r} j1:{j1} j2:{j2} j3:{j3} j4:{j4}')\n\ndevice.move_to(x + 20, y, z, r, wait=True)\ndevice.move_to(x, y, z, r, wait=True)\n"
+  },
+};
 
 function displayMenu() {
   const menu = document.getElementById('mainmenu');
@@ -73,22 +89,6 @@ function initPythonEditor() {
   });
 }
 
-const infos = {
-  'sphero': {
-    'server': 'ws://localhost:7007',
-    'type': 'sphero',
-    'path': '/#sphero',
-    'title': 'Programmation du robot **Sphero** :',
-    'defaultSrc': 'import sphero\n\norb = sphero.connect()\n\norb.set_rgb_led(0,120,0)\n\norb.move(0) # Se déplace direction 0°\norb.wait(1) # Attend 1s\n'
-  },
-  'dobot': {
-    'server': 'ws://localhost:7008',
-    'type': 'dobot',
-    'path': '/#dobot',
-    'title': 'Programmation du bras robotisé **Dobot magician** :',
-    'defaultSrc': "import pydobot\n\ndevice = pydobot.Dobot()\n\n(x, y, z, r, j1, j2, j3, j4) = device.pose()\nprint(f'x:{x} y:{y} z:{z} r:{r} j1:{j1} j2:{j2} j3:{j3} j4:{j4}')\n\ndevice.move_to(x + 20, y, z, r, wait=True)\ndevice.move_to(x, y, z, r, wait=True)\n"
-  },
-};
 
 function displayCommands(info) {
   // const title = document.getElementById('title');
@@ -127,7 +127,7 @@ function loadCommands(pushHistory, info){
   if(pushHistory) {
     history.pushState(null, '', info.path);
   }
-  _currentType = info;
+  _currentInfo = info;
   displayCommands(info);
 }
 
@@ -342,7 +342,7 @@ function getProgKey(type){
   if(_user) {
     key += '_' + _user.studentId;
   }
-  debug('progkey ' + key)
+  debug('[LS] progkey ' + key)
   return key;
 }
 
@@ -405,7 +405,7 @@ function disableSend(){
   let sb = document.getElementById('sendbtn');
   if (sb) {
     sb.disabled = true;
-    sb.innerText='Serveur bluetooth non trouvé';
+    sb.innerText='Serveur du professeur non trouvé';
   }
 }
 
@@ -414,7 +414,7 @@ function sendProgram(){
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
   debug('[Send] Send program\n' + prgm);
-  sendWS('send_program', { 'program': prgm }, res => {
+  sendWS('send_program', { 'type': _currentInfo.type, 'program': prgm }, res => {
     debug('[Send] response', res);
     let relt = document.querySelector('#overlay .result');
     relt.innerHTML = 'Envoyé !';
@@ -455,7 +455,7 @@ function initClient(){
   document.addEventListener('keyup', evt => {
     if(evt.target && evt.target.nodeName === 'TEXTAREA') {
       if(_pythonEditor){
-        localStorage.setItem(getProgKey(_currentType), _pythonEditor.getValue());
+        localStorage.setItem(getProgKey(_currentInfo ? _currentInfo.type : null), _pythonEditor.getValue());
       }
     }
   });
@@ -476,14 +476,16 @@ function initClient(){
       document.getElementById('username').innerHTML = user.firstName || 'Moi';
       document.getElementById('profile-menu').classList.remove('hidden');
       connectWS(() => {
-        sendWS('status_btsender', null, res => {
-          debug(' [Status] response', res);
-          if(res.status === 'err') {
-            disableSend();
-          } else {
-            enableSend();
-          }
-        });
+        if(_currentInfo) {
+          sendWS('status_btsender', { 'type': _currentInfo.type }, res => {
+            debug(' [Status] response', res);
+            if(res.status === 'err') {
+              disableSend();
+            } else {
+              enableSend();
+            }
+          });
+        }
       });
       if(location.hash && location.hash.match('#sphero')) {
         loadCommands(true, infos.sphero);
@@ -608,6 +610,10 @@ function localConnect(info){
 
 /** Connection au serveur local via webocket. */
 function connect(info) {
+  _currentInfo = info;
+  sendWS('connect_btsender', { 'type': _currentInfo.type }, res => {
+    debug(' [Connect] response', res);
+  });
   localConnect(info);
 }
 
@@ -639,9 +645,11 @@ function initTeacher(){
 
     // displayMenu();
     connectWS(() => {
-      sendWS('connect_btsender', null, res => {
-        debug(' [Connect] response', res);
-      });
+      if(_currentInfo) {
+        sendWS('connect_btsender', { 'type': _currentInfo.type }, res => {
+          debug(' [Connect] response', res);
+        });
+      }
     });
     hideLoading();
   });
