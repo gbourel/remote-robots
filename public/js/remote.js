@@ -296,7 +296,9 @@ function getAuthToken(){
       if(idx > -1) {
         let value = c.substring(name.length + idx);
         let json = JSON.parse(value);
-        _token = json.authenticated.access_token;
+        if(json.authenticated.access_token) {
+          _token = json.authenticated.access_token;
+        }
       }
     }
   }
