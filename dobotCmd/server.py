@@ -11,7 +11,7 @@ import pydobot
 SERVER_HOST = "localhost"
 SERVER_PORT = 7008
 
-print("Communication avec Robot Sphero")
+print("Communication avec bras robotisé Dobot")
 
 status = {
   'dobot': {},
@@ -22,6 +22,10 @@ status = {
 DB_FILE="programs_dobot.db"
 db = sqlite3.connect(DB_FILE)
 cur = db.cursor()
+
+def debug(msg):
+  print(msg)
+  return
 
 def initDB():
   """ Init local SQLite database."""
@@ -56,7 +60,7 @@ async def get_status(ws, data=None):
 
 async def add_program(ws, data=None):
   """Append program to current waiting list."""
-  print(f"Add program {json.dumps(data)}\n")
+  debug(f"Add program {json.dumps(data)}\n")
   if(len(status["programs"]) > 0):
     data["state"] = "WAITING"
   else:
@@ -107,6 +111,7 @@ async def start_program(ws, data=None):
 
 async def remove_program(ws, data=None):
   """Remove program with provided id."""
+  debug(f"Remove program {data}.")
   status["programs"].remove(data)
   val = cur.execute(f'UPDATE programs SET state="DELETED" WHERE id={data["id"]}')
   db.commit()
@@ -147,7 +152,7 @@ async def handler(websocket, path):
   while True:
     data = await websocket.recv()
     msg = json.loads(data)
-    res = ''
+    res = None
     try:
       handler = handlers[msg["cmd"]]
       if "data" in msg:
@@ -158,23 +163,25 @@ async def handler(websocket, path):
       print(f"Handler error for command {msg['cmd']}")
       print(e)
       res = { 'error': 'command error'}
-    await websocket.send(json.dumps(res))
+    if res:
+      await websocket.send(json.dumps(res))
 
 def initDobot():
-  """Init sphero status."""
-  orb = sphero.connect()
-  time.sleep(0.5)
+  """Init dobot status."""
+  # orb = sphero.connect()
+  # time.sleep(0.5)
 
-  orb.set_rgb_led(0,40,0, permanent=True)
-  time.sleep(0.5)
+  # orb.set_rgb_led(0,40,0, permanent=True)
+  # time.sleep(0.5)
 
-  status['sphero']['name'] = orb.get_device_name()
-  status['sphero']['power'] = orb.get_power_state()
-  print(orb.get_voltage_trip_points())
-  # max => 845 (8.45V)
-  # 700 => low
-  # 650 => critical low
-  print(f"Sphero status: {status['sphero']}")
+  # status['sphero']['name'] = orb.get_device_name()
+  # status['sphero']['power'] = orb.get_power_state()
+  # print(orb.get_voltage_trip_points())
+  # # max => 845 (8.45V)
+  # # 700 => low
+  # # 650 => critical low
+  # print(f"Sphero status: {status['sphero']}")
+  return
 
 initDB()
 start_server = websockets.serve(handler, SERVER_HOST, SERVER_PORT)
