@@ -2,16 +2,27 @@ import { WS_URL, LCMS_URL, debug } from './config.js';
 
 const KEEPALIVE_DELAY = 10000; // 10s
 
-export default class WS {
+
+class WebSocketCtrl {
   #ws = null;
   #idCounter = 0;
   #token = null;
   #responseCallbacks = {};
   #handlers = {};
   #keepaliveTimeout = null;
+  #user = null; // Current user
 
   constructor() {
     debug('[WS] => New websocket controller instance.');
+  }
+
+  /** Return current user or null if not logged in. */
+  get user() {
+    return this.#user;
+  }
+
+  get loggedIn() {
+    return this.#user !== null;
   }
 
   addHandler (type, handler) {
@@ -71,6 +82,16 @@ export default class WS {
     }
   }
 
+  connectServer(robot, cb) {
+    if(!robot) { return console.error('Missing robot for connection.'); }
+    this.connect (() => {
+      this.send('connect_btsender', { 'type': robot.type }, res => {
+        debug(' [Connect] response', res);
+        if(cb) { cb(); }
+      });
+    });
+  }
+
   send (event, data, cb) {
     debug('[WS] Send', event, JSON.stringify(data))
     let msg = {
@@ -89,7 +110,7 @@ export default class WS {
       this.#ws.send(JSON.stringify(msg))
       this.#keepaliveTimeout = setTimeout(() => { this.send('__keepAlive', null); }, KEEPALIVE_DELAY);
     } else if (this.#ws && this.#ws.readyState === this.#ws.CLOSED) {
-      connectWS(() => {
+      this.connect(() => {
         this.#ws.send(JSON.stringify(msg))
         this.#keepaliveTimeout = setTimeout(() => { this.send('__keepAlive', null); }, KEEPALIVE_DELAY);
       })
@@ -123,12 +144,15 @@ export default class WS {
         }
         return json;
       }).then(data => {
-        cb(data.student);
+        this.#user = data.student;
+        cb(this.#user);
       }).catch(err => {
         console.warn('Unable to fetch user', err);
+        this.#user = null;
         cb(null);
       });
     } else {
+      this.#user = null;
       cb(null);
     }
   }
@@ -142,11 +166,11 @@ export default class WS {
   #waitForConnection (cb) {
     setTimeout(() => {
       if (!this.#ws) {
-        this.connectWS(cb)
+        this.connect(cb)
       } else if (this.#ws.readyState === this.#ws.OPEN) {
         cb()
       } else if (this.#ws.readyState === this.#ws.CLOSED) {
-        this.connectWS(cb)
+        this.connect(cb)
       } else {
         this.#waitForConnection(cb)
       }
@@ -204,3 +228,5 @@ export default class WS {
     });
   }
 }
+
+export default new WebSocketCtrl();
