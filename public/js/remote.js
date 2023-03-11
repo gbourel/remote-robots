@@ -1,30 +1,15 @@
+import { VERSION, NSIX_LOGIN_URL, COOKIE_DOMAIN, debug } from './config.js';
+import WS from './websocket.js';
+
+const _ws = new WS();
+
 (function (){
 
-const VERSION = 'v0.6.2';
 document.getElementById('version').textContent = VERSION;
-
-const host = window.location.host;
-const dev = host.startsWith('localhost') || host.startsWith('ileauxsciences.test');
-let debug = () => {};
-if(dev || location.href.match('#debug')) {
-  debug = console.info;
-}
 
 let _pythonEditor = null; // Codemirror editor
 let _output = [];     // Current script stdout
 let _nsix = false;    // If embedded in a nsix challenge
-
-let NSIX_LOGIN_URL = 'http://app.nsix.fr/connexion'
-let LCMS_URL = 'https://webamc.nsix.fr';
-let WS_URL = 'wss://webamc.nsix.fr';
-let COOKIE_DOMAIN = '.nsix.fr';
-
-if(dev) {
-  NSIX_LOGIN_URL = 'http://ileauxsciences.test:4200/connexion';
-  LCMS_URL = 'http://dev.ileauxsciences.test:9976';
-  WS_URL = 'ws://dev.ileauxsciences.test:9976';
-  COOKIE_DOMAIN = '.ileauxsciences.test';
-}
 
 let _user = null;
 let _token = null;
@@ -33,17 +18,6 @@ let _token = null;
 let _over = false;  // python running
 
 let _currentPrograms = [];
-
-// WS variables
-
-const responseCallbacks = {};
-const handlers = {};
-
-const KEEPALIVE_DELAY = 10000; // 10s
-let _keepaliveTimeout = null;
-
-let _ws = null;
-let _idCounter = 0;
 
 let _currentInfo = null; // Current robot info
 const infos = {
@@ -287,55 +261,6 @@ function login() {
   location.href = `${NSIX_LOGIN_URL}?dest=${current}`;
 }
 
-/** Récupère le token de connexion depuis le cookie associé. */
-function getAuthToken(){
-  if(_token !== null) { return _token; }
-  if(document.cookie) {
-    const name = 'ember_simple_auth-session='
-    let cookies = decodeURIComponent(document.cookie).split(';');
-    for (let c of cookies) {
-      let idx = c.indexOf(name);
-      if(idx > -1) {
-        let value = c.substring(name.length + idx);
-        let json = JSON.parse(value);
-        if(json.authenticated.access_token) {
-          _token = json.authenticated.access_token;
-        }
-      }
-    }
-  }
-  return _token;
-}
-
-/** Télécharge le profil utilisateur depuis le LCMS. */
-function loadUser(cb) {
-  let token = getAuthToken();
-  if(token) {
-    const meUrl = LCMS_URL + '/students/profile';
-    const req = new Request(meUrl);
-    fetch(req, {
-      'headers': {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    }).then(res => {
-      let json = null;
-      if(res.status === 200) {
-        json = res.json();
-      }
-      return json;
-    }).then(data => {
-      cb(data.student);
-    }).catch(err => {
-      console.warn('Unable to fetch user', err);
-      cb(null);
-    });
-  } else {
-    cb(null);
-  }
-}
-
 /** Renvoie la clef correspondant à l'utilisateur courant pour
  * l'enregistrement en cache du programme. */
 function getProgKey(type){
@@ -415,7 +340,7 @@ function sendProgram(){
   const overlay = document.getElementById('overlay');
   overlay.classList.remove('hidden');
   debug('[Send] Send program\n' + prgm);
-  sendWS('send_program', { 'type': _currentInfo.type, 'program': prgm }, res => {
+  _ws.send('send_program', { 'type': _currentInfo.type, 'program': prgm }, res => {
     debug('[Send] response', res);
     let relt = document.querySelector('#overlay .result');
     relt.innerHTML = 'Envoyé !';
@@ -425,7 +350,7 @@ function sendProgram(){
 
 function remoteRunProgram(){
   debug('[Start] Start program', _user.studentId);
-  sendWS('start_program', { 'type': _currentInfo.type }, res => {
+  _ws.send('start_program', { 'type': _currentInfo.type }, res => {
     debug('[Start] response', res);
   });
 }
@@ -476,7 +401,7 @@ function initClient(){
   //   }
   // });
 
-  handlers['programs_status'] = [(data) => {
+  _ws.addHandler('programs_status', (data) => {
     debug('Programs status', JSON.stringify(data, '', ' '));
     if (_user && data?.type === _currentInfo?.type) {
       let btn = document.getElementById('remoterunbtn');
@@ -494,10 +419,10 @@ function initClient(){
         }
       }
     }
-  }];
+  });
 
 
-  loadUser(user => {
+  _ws.loadUser(user => {
     // TODO session cache
     debug('User loaded', user);
 
@@ -505,9 +430,9 @@ function initClient(){
       _user = user;
       document.getElementById('username').innerHTML = user.firstName || 'Moi';
       document.getElementById('profile-menu').classList.remove('hidden');
-      connectWS(() => {
+      _ws.connect (() => {
         if(_currentInfo) {
-          sendWS('status_btsender', { 'type': _currentInfo.type }, res => {
+          _ws.send('status_btsender', { 'type': _currentInfo.type }, res => {
             debug(' [Status] response', res);
             if(res.status === 'err') {
               disableSend();
@@ -600,7 +525,7 @@ async function refreshPrograms(status){
   }
   // TODO send prgmStatus
   debug(' [PRGM] Send programs status', prgmStatus);
-  sendWS('programs_status', { 'type': _currentInfo.type, 'status': prgmStatus });
+  _ws.send('programs_status', { 'type': _currentInfo.type, 'status': prgmStatus });
 }
 
 let _localSocket = null;
@@ -648,7 +573,7 @@ function localConnect(info){
 /** Connection au serveur local via webocket. */
 function connect(info) {
   _currentInfo = info;
-  sendWS('connect_btsender', { 'type': _currentInfo.type }, res => {
+  _ws.send('connect_btsender', { 'type': _currentInfo.type }, res => {
     debug(' [Connect] response', res);
   });
   localConnect(info);
@@ -681,9 +606,9 @@ function initTeacher(){
     }
 
     // displayMenu();
-    connectWS(() => {
+    _ws.connect (() => {
       if(_currentInfo) {
-        sendWS('connect_btsender', { 'type': _currentInfo.type }, res => {
+        _ws.send('connect_btsender', { 'type': _currentInfo.type }, res => {
           debug(' [Connect] response', res);
         });
       }
@@ -692,7 +617,7 @@ function initTeacher(){
   });
 }
 
-handlers['__add_program'] = [(data) => {
+_ws.addHandler('__add_program', (data) => {
   // Forward to local server
   debug('Add program !', JSON.stringify(data, '', ' '));
   _localSocket.send(JSON.stringify({
@@ -704,9 +629,9 @@ handlers['__add_program'] = [(data) => {
      'state': 'WAITING'
     }
   }));
-}];
+});
 
-handlers['__start_program'] = [(data) => {
+_ws.addHandler('__start_program', (data) => {
   debug('Start program !', JSON.stringify(data, '', ' '));
   if(_currentPrograms[0] && _currentPrograms[0].studentId === data.studentId) {
     startPrgm(_currentPrograms[0]);
@@ -714,13 +639,13 @@ handlers['__start_program'] = [(data) => {
   } else {
     // FIXME error
   }
-}];
+});
 
 
 let btn = document.getElementById('remoterunbtn');
 
-handlers['btsender_connected'] = [enableSend];
-handlers['btsender_disconnected'] = [disableSend];
+_ws.addHandler('btsender_connected', enableSend);
+_ws.addHandler('btsender_disconnected', disableSend);
 
 // if in iframe (i.e. nsix challenge)
 _nsix = window.location !== window.parent.location;
@@ -734,145 +659,6 @@ if(location.href.match('teacher.html')) {
   initTeacher();
 } else {
   initClient();
-}
-
-/***** Web socket connection *****/
-
-// Return next msg id
-function getId () {
-  return _idCounter++;
-}
-
-function getWSToken() {
-  return new Promise((resolve, reject) => {
-    let atok = getAuthToken();
-    if(!atok) {
-      debug('[WS] Auth token not found');
-      return resolve(null);
-    }
-    fetch(LCMS_URL + '/api/nsixSignin', {
-      'method': 'POST',
-      'headers': {
-        'Authorization': 'Bearer ' + atok,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    }).then(res => {
-      let json = null;
-      if(res.status === 200) {
-        json = res.json();
-      }
-      return json;
-    }).then(data => {
-      debug('[WS] Signed in', data);
-      resolve(data.token);
-    }).catch(err => {
-      debug('[WS] Unable to fetch token', err);
-      resolve(null);
-    });
-    return null;
-  });
-}
-
-// Manual connection
-async function connectWS (cb) {
-  if (_ws && _ws.readyState === _ws.OPEN) { // already connected
-    return cb && cb();
-  }
-  let token = await getWSToken();
-  if (!token) {
-    debug('[WS] WS token not found');
-    return cb && cb();
-  }
-  _ws = new WebSocket(WS_URL + '?' + token);
-  debug('[WS] connection');
-  // On new WS message
-  _ws.onmessage = function (message) {
-    debug(' [WS] message', message)
-    if (!message) { return; }
-    // if message has some data
-    if (message.data) {
-      const content = JSON.parse(message.data);
-      // for response messages
-      if (content.event === '__response') {
-        const cb = responseCallbacks[content.src_id];
-        if (cb) { cb(content.data); }
-        delete responseCallbacks[content.src_id];
-      } else {
-        const list = handlers[content.event];
-        if (list) {
-          if(Array.isArray(list)){
-            list.forEach(h => {
-              if (h) { h(content.data); }
-            })
-          } else {
-            list(content.data);
-          }
-        } else {
-          debug(' [WS] Missing handler for event', content.event);
-        }
-      }
-    }
-  }
-
-  _ws.onclose = function () {
-    debug('[WS] disconnected');
-    // localStorage.removeItem(TOKEN)
-  }
-
-  if (cb) {
-    _ws.onopen = function () {
-      cb();
-    }
-  }
-}
-
-// Wait for WS connection to execute callback
-function waitForConnection (cb) {
-  setTimeout(() => {
-    if (!_ws) {
-      connectWS(cb)
-    } else if (_ws.readyState === _ws.OPEN) {
-      cb()
-    } else if (_ws.readyState === _ws.CLOSED) {
-      connectWS(cb)
-    } else {
-      waitForConnection(cb)
-    }
-  }, 100)
-}
-
-function sendWS (event, data, cb) {
-  debug('[WS] Send', event, JSON.stringify(data))
-  let msg = {
-    event: event,
-    data: data
-  }
-  if (cb && typeof cb === 'function') {
-    msg.id = getId()
-    responseCallbacks[msg.id] = cb
-  }
-  if(_keepaliveTimeout) {
-    clearTimeout(_keepaliveTimeout);
-    _keepaliveTimeout = null;
-  }
-  if (_ws && _ws.readyState === _ws.OPEN) {
-    _ws.send(JSON.stringify(msg))
-    _keepaliveTimeout = setTimeout(() => { sendWS('__keepAlive', null); }, KEEPALIVE_DELAY);
-  } else if (_ws && _ws.readyState === _ws.CLOSED) {
-    connectWS(() => {
-      _ws.send(JSON.stringify(msg))
-      _keepaliveTimeout = setTimeout(() => { sendWS('__keepAlive', null); }, KEEPALIVE_DELAY);
-    })
-  } else {
-    waitForConnection(() => {
-      if (_ws) {
-        _ws.send(JSON.stringify(msg))
-        _keepaliveTimeout = setTimeout(() => { sendWS('__keepAlive', null); }, KEEPALIVE_DELAY);
-      }
-      // FIXME else : missing WS ?
-    })
-  }
 }
 
 })();
