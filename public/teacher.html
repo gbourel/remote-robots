@@ -3,7 +3,6 @@
 <head>
   <title>Commande à distance</title>
   <meta charset="utf-8">
-  <meta name="robots" content="noindex">
   <link rel="stylesheet" href="lib/katex/katex.min.css">
   <link rel="stylesheet" href="lib/codemirror/codemirror.css">
   <link rel="stylesheet" href="lib/codemirror/monokai.css">
@@ -38,7 +37,9 @@
     <p id="instruction"></p>
   </header>
   <main id="programs-list">
-    <div id="missing-local-msg">Attention : pas de connexion au server bluetooth/usb local.
+    <div id="teachers-only">NB: cette application est prévue pour les enseignants uniquement. Si besoin, une demande de modification peut être demandée sur <a href="https://github.com/gbourel/remote-robots">la page github de l'application</a>.
+    </div>
+    <div id="missing-local-msg" class="hidden">Attention : pas de connexion au server bluetooth/usb local.
     </div>
     <ul>
       <li id="sphero-connect">Sphero</li>

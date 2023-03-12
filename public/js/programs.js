@@ -66,11 +66,12 @@ ws.addHandler('__start_program', (data) => {
 /** Connection au serveur local via webocket. */
 const programs = {
   connect: (robot) => {
-    // _currentRobot = robot;
+    // FIXME move remote ws connection from local connection file.
     ws.send('connect_btsender', { 'type': robot.type }, res => {
       debug(' [Connect] response', res);
+      if(res.status === 'err') { return; }
+      localConnect(robot);
     });
-    localConnect(robot);
   },
   startPrgm: (prgm) => {
     debug('Start program', prgm);

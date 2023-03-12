@@ -198,6 +198,7 @@ const gui = {
     if (sb) {
       sb.disabled = true;
       sb.innerText='Serveur du professeur non trouvé';
+      document.getElementById('remoterunbtn').classList.add('hidden');
     }
   },
 
@@ -205,6 +206,10 @@ const gui = {
     ws.loadUser(async (user) => {
       // TODO session cache
       debug('User loaded', user);
+
+      if (user && user.type === 'ENSEIGNANT') {
+        document.getElementById('teachers-only').remove();
+      }
 
       document.getElementById('sphero-connect').addEventListener('click', () => {
         programs.connect(sphero);
