@@ -1,5 +1,5 @@
 
-export const VERSION = 'v0.7.0';
+export const VERSION = 'v0.8.0';
 
 const host = window.location.host;
 export const dev = host.startsWith('localhost') || host.startsWith('ileauxsciences.test');

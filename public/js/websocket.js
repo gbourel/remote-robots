@@ -42,10 +42,9 @@ class WebSocketCtrl {
       return cb && cb();
     }
     this.#ws = new WebSocket(WS_URL + '?' + token);
-    debug('[WS] connection');
     // On new WS message
     this.#ws.onmessage = (message) => {
-      debug(' [WS] message', message)
+      debug(' [WS] message ' + message?.data);
       if (!message) { return; }
       // if message has some data
       if (message.data) {
@@ -218,7 +217,7 @@ class WebSocketCtrl {
         }
         return json;
       }).then(data => {
-        debug('[WS] Signed in', data);
+        debug('[WS] Signed in ok');
         resolve(data.token);
       }).catch(err => {
         debug('[WS] Unable to fetch token', err);

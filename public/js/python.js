@@ -1,9 +1,12 @@
 import { debug } from './config.js';
+import { robots } from './robots.js';
 
 let _over = false;  // python running after end of user input
 let _output = [];     // Current script stdout
 
+// Init turtle graphics.
 (Sk.TurtleGraphics || (Sk.TurtleGraphics = {})).target = 'turtlecanvas';
+// Debug log when any library is loaded.
 Sk.onAfterImport = function(library) {
   debug('[Skulpt] Imported', library);
 };
@@ -20,16 +23,21 @@ function outf(text) {
   }
 }
 
-// Load python modules
-const skSpheroLibs = {
-  './sphero.js': './lib/skulpt/externals/sphero.js',
+// Skulpt python to JS mapping for external modules
+const skExternalLibs = {
   './snap.js': './lib/skulpt/externals/snap.js'
 };
+// Load external modules for robots.
+for(let r of robots) {
+  for(let lib in r.skLibs) {
+    skExternalLibs[lib] = r.skLibs[lib];
+  }
+}
 
 function builtinRead(file) {
-  if (skSpheroLibs[file] !== undefined) {
+  if (skExternalLibs[file] !== undefined) {
     return Sk.misceval.promiseToSuspension(
-      fetch(skSpheroLibs[file]).then(
+      fetch(skExternalLibs[file]).then(
         function (resp){ return resp.text(); }
       ));
   }
@@ -38,13 +46,6 @@ function builtinRead(file) {
   }
   return Sk.builtinFiles.files[file];
 }
-
-// function builtinRead(x) {
-//   if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined)
-//     throw "File not found: '" + x + "'";
-//   return Sk.builtinFiles["files"][x];
-// }
-
 
 // On Python script completion
 function onCompletion(mod) {
@@ -109,7 +110,7 @@ function onCompletion(mod) {
 }
 
 // Run python script
-export function runit(prog) {
+export function runit(prog, robot) {
   debug('[Python] runit', prog);
   if(!prog) { return console.error('Cannot run empty program'); }
   let outputElt = document.getElementById('output');
@@ -131,11 +132,11 @@ export function runit(prog) {
   // }
   _output = [];
   _over = false;
-  // if(prog.startsWith('import turtle')) {
+  if(robot && robot.runOpts.turtle === true) {
     document.getElementById('pythonsrc').style.width = '50%';
     document.getElementById('turtlecanvas').classList.remove('hidden');
     outputElt.style.width = '100%';
-  // }
+  }
   // if(prog.startsWith('import webgl')) {
   //   document.getElementById('webglcanvas').classList.remove('hidden');
   //   outputElt.style.width = '100%';

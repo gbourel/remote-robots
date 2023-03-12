@@ -12,7 +12,6 @@ let _output = [];     // Current script stdout
  * l'enregistrement en cache du programme. */
 function getProgKey(type){
   let key = type || 'prog'
-  console.info('user', ws.user)
   if(ws.user) {
     key += '_' + ws.user.studentId;
   }
@@ -83,7 +82,7 @@ const gui = {
 
     document.getElementById('logoutBtn').addEventListener('click', logout);
     document.getElementById('checkbtn').addEventListener('click', () => {
-      python.runit(_pythonEditor.getValue());
+      python.runit(_pythonEditor.getValue(), _currentRobot);
     });
     document.getElementById('sendbtn').addEventListener('click', sendProgram);
     document.getElementById('remoterunbtn').addEventListener('click', remoteRunProgram);
@@ -146,7 +145,7 @@ const gui = {
       extraKeys: {
         'Tab': (cm) => cm.execCommand("indentMore"),
         'Shift-Tab': (cm) => cm.execCommand("indentLess"),
-        'Ctrl-Enter': () => { python.runit(_pythonEditor.getValue()); }
+        'Ctrl-Enter': () => { python.runit(_pythonEditor.getValue(), _currentRobot); }
       }
     });
   },

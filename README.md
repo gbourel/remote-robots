@@ -2,7 +2,7 @@
 
 Application de pilotage à distance pour robots : Sphero et Dobot magician.
 
-[](https://robots.nsix.fr)
+[https://robots.nsix.fr](https://robots.nsix.fr)
 
 ## Description
 

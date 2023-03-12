@@ -2,3 +2,5 @@ node_modules/
 __pycache__
 
 spheroCmd/programs.db
+
+dobotCmd/programs_dobot.db

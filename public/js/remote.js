@@ -44,7 +44,7 @@ function initClient(){
 
   ws.loadUser(user => {
     // TODO session cache
-    debug('User loaded', user);
+    debug('  🥸 User loaded', user);
 
     if(user) {
       document.getElementById('username').innerHTML = user.firstName || 'Moi';
