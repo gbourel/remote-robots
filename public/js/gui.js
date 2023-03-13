@@ -1,4 +1,4 @@
-import { debug } from './config.js';
+import { debug, NSIX_LOGIN_URL } from './config.js';
 import { sphero, dobot } from './robots.js';
 import ws from './websocket.js';
 import programs from './programs.js';
