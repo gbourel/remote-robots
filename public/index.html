@@ -85,6 +85,13 @@
     <button id="sendbtn" class="bg-blue-500 rounded my-2 p-2 shadow-md" type="button">Envoyer</button>
     <button id="remoterunbtn" disabled class="hidden bg-purple-700 rounded my-2 p-2 shadow-md" type="button">Commander le robot</button>
     <button id="homebtn" class="bg-slate-500 float-right rounded my-2 p-2 shadow-md" type="button">Home</button>
+    <div id="remote-output" class="hidden text-gray-700">
+      <span>Compte rendu d'exécution : </span>
+      <div class="w-full font-mono text-sm border-2 bg-stone-100 border-zinc-500 p-2">
+        <div class="stdout text-green-900"></div>
+        <div class="stderr error"></div>
+      </div>
+    </div>
   </main>
 
   <div id="overlay" class="hidden">

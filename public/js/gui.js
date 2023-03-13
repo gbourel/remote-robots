@@ -69,6 +69,11 @@ function remoteRunProgram(){
   });
 }
 
+function login() {
+  const current = location.href;
+  location.href = `${NSIX_LOGIN_URL}?dest=${current}`;
+}
+
 const gui = {
   hideLoading: () => {
     document.getElementById('loading').classList.add('hidden');
@@ -118,6 +123,14 @@ const gui = {
             btn.innerText = `${waitIdx+1}ème dans la file d'attente`;
             btn.disabled = true;
           }
+        }
+        if(data?.output && data?.output.studentId === ws.user.studentId) {
+          console.info('REsssssssssssssssssssssultaaaaaaaaaaat');
+          let parent = document.getElementById('remote-output');
+          parent.querySelector('.stdout').innerText = data.output.stdout;
+          parent.querySelector('.stderr').innerText = data.output.stderr;
+          parent.classList.remove('hidden');
+
         }
       }
     });
@@ -268,9 +281,9 @@ const gui = {
         parent.appendChild(line);
       }
     }
-    // TODO send prgmStatus
-    debug(' [PRGM] Send programs status', prgmStatus);
-    ws.send('programs_status', { 'type': _currentRobot.type, 'status': prgmStatus });
+    let res = { 'type': _currentRobot.type, 'status': prgmStatus, 'output': status.result }
+    debug(' [PRGM] Send programs status', res);
+    ws.send('programs_status', res);
   }
 }
 
