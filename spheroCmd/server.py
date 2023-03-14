@@ -8,6 +8,7 @@ import time
 import sphero
 
 SERVER_HOST = "localhost"
+SERVER_PORT = 7007
 
 print("Communication avec Robot Sphero")
 
@@ -20,6 +21,11 @@ status = {
 DB_FILE="programs.db"
 db = sqlite3.connect(DB_FILE)
 cur = db.cursor()
+
+def debug(msg):
+  """Debug log."""
+  print(msg)
+  return
 
 def initDB():
   """ Init local SQLite database."""
@@ -54,7 +60,7 @@ async def get_status(ws, data=None):
 
 async def add_program(ws, data=None):
   """Append program to current waiting list."""
-  print(f"Add program {json.dumps(data)}\n")
+  debug(f"Add program {json.dumps(data)}\n")
   if(len(status["programs"]) > 0):
     data["state"] = "WAITING"
   else:
@@ -85,11 +91,19 @@ async def start_program(ws, data=None):
   for prgm in status["programs"]:
     if prgm["id"] == data["id"]:
       prgm["state"] = "RUNNING"
+      result = None
       await ws.send(json.dumps(status))
       try:
         with open('remote_prgm.py', 'w') as file:
           file.write(prgm["program"])
-        subprocess.run(['python3', 'remote_prgm.py'], shell=False, check=True)
+        p = subprocess.run(['python3', 'remote_prgm.py'], shell=False, check=False, capture_output=True)
+        result = {
+          "id": prgm["id"],
+          "studentId": data['studentId'],
+          "returncode": p.returncode,
+          "stdout": p.stdout.decode(),
+          "stderr": p.stderr.decode()
+        }
         prgm["state"] = "DONE"
       except Exception as e:
         print(f"Error {e}")
@@ -100,11 +114,14 @@ async def start_program(ws, data=None):
       if len(status["programs"]) > 0:
         status["programs"][0]["state"] = 'READY'
       print('\n\nDone\n')
-      await ws.send(json.dumps(status))
+      ret = status.copy()
+      ret["result"] = result
+      await ws.send(json.dumps(ret))
   return status
 
 async def remove_program(ws, data=None):
   """Remove program with provided id."""
+  debug(f"Remove program {data}.")
   status["programs"].remove(data)
   val = cur.execute(f'UPDATE programs SET state="DELETED" WHERE id={data["id"]}')
   db.commit()
@@ -145,7 +162,7 @@ async def handler(websocket, path):
   while True:
     data = await websocket.recv()
     msg = json.loads(data)
-    res = ''
+    res = None
     try:
       handler = handlers[msg["cmd"]]
       if "data" in msg:
@@ -156,27 +173,29 @@ async def handler(websocket, path):
       print(f"Handler error for command {msg['cmd']}")
       print(e)
       res = { 'error': 'command error'}
-    await websocket.send(json.dumps(res))
+    if res:
+      await websocket.send(json.dumps(res))
 
 def initSphero():
   """Init sphero status."""
   orb = sphero.connect()
-  time.sleep(0.5)
+  time.sleep(0.2)
 
-  orb.set_rgb_led(0,40,0, permanent=True)
-  time.sleep(0.5)
+  # orb.set_rgb_led(0,40,0, permanent=True)
+  # time.sleep(0.5)
 
   status['sphero']['name'] = orb.get_device_name()
   status['sphero']['power'] = orb.get_power_state()
-  print(orb.get_voltage_trip_points())
+  # print(orb.get_voltage_trip_points())
   # max => 845 (8.45V)
   # 700 => low
   # 650 => critical low
   print(f"Sphero status: {status['sphero']}")
 
 initDB()
-start_server = websockets.serve(handler, SERVER_HOST, 7007)
+start_server = websockets.serve(handler, SERVER_HOST, SERVER_PORT)
 
+# FIXME add disconnect before status
 # initSphero()
 
 print("En attente d'un programme...")
