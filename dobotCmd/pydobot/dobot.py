@@ -1,4 +1,5 @@
 import serial
+from serial.tools import list_ports
 import struct
 import time
 import threading
@@ -17,7 +18,8 @@ class Dobot:
 
         if (port == None):
             available_ports = list_ports.comports()
-            print(f'available ports: {[x.device for x in available_ports]}')
+            # TODO debug
+            # print(f'available ports: {[x.device for x in available_ports]}')
             port = available_ports[0].device
 
         self._on = True
@@ -340,6 +342,33 @@ class Dobot:
         j4 = struct.unpack_from('f', response.params, 28)[0]
         return x, y, z, r, j1, j2, j3, j4
 
+    def get_home_params(self):
+        msg = Message()
+        msg.id = CommunicationProtocolIDs.GET_HOME_PARAMS
+        response = self._send_command(msg)
+        val = {}
+        val["vj1"] = struct.unpack_from('f', response.params, 0)[0]
+        val["vj2"] = struct.unpack_from('f', response.params, 4)[0]
+        val["vj3"] = struct.unpack_from('f', response.params, 8)[0]
+        val["vj4"] = struct.unpack_from('f', response.params, 12)[0]
+        val["aj1"] = struct.unpack_from('f', response.params, 16)[0]
+        val["aj2"] = struct.unpack_from('f', response.params, 20)[0]
+        val["aj3"] = struct.unpack_from('f', response.params, 24)[0]
+        val["aj4"] = struct.unpack_from('f', response.params, 28)[0]
+
+        if self.verbose:
+            print("pydobot: vj1:%03.1f \
+                            vj2:%03.1f \
+                            vj3:%03.1f \
+                            vj4:%03.1f \
+                            aj1:%03.1f \
+                            aj2:%03.1f \
+                            aj3:%03.1f \
+                            aj4:%03.1f" %
+                  (val.vj1, val.vj2, val.vj3, val.vj4, val.aj1, val.aj2, val.aj3, val.aj4))
+        return val
+
+
     def get_jog_params(self):
         msg = Message()
         msg.id = CommunicationProtocolIDs.SET_GET_JOG_JOINT_PARAMS
@@ -402,6 +431,14 @@ class Dobot:
         #     val = struct.unpack_from('s', response.params, 0)[0]
         return val
 
-    def set_jog_cmd(self):
-
-        return
+    def set_home_cmd(self):
+        msg = Message()
+        msg.id = CommunicationProtocolIDs.SET_HOME_CMD
+        msg.ctrl = 0x03
+        msg.params = bytearray(bytes([0x00]))
+        msg.params.extend(bytearray(struct.pack('f', 0)))
+        response = self._send_command(msg, wait=False)
+        val = None
+        # if(response != None):
+        #     val = struct.unpack_from('s', response.params, 0)[0]
+        return val
