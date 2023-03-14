@@ -24,6 +24,7 @@ db = sqlite3.connect(DB_FILE)
 cur = db.cursor()
 
 def debug(msg):
+  """Debug log."""
   print(msg)
   return
 
@@ -91,11 +92,21 @@ async def start_program(ws, data=None):
   for prgm in status["programs"]:
     if prgm["id"] == data["id"]:
       prgm["state"] = "RUNNING"
+      result = None
       await ws.send(json.dumps(status))
       try:
         with open('remote_prgm.py', 'w') as file:
           file.write(prgm["program"])
-        subprocess.run(['python3', 'remote_prgm.py'], shell=False, check=True)
+        p = subprocess.run(['python3', 'remote_prgm.py'], shell=False, check=False, capture_output=True)
+        result = {
+          "id": prgm["id"],
+          "studentId": data['studentId'],
+          "returncode": p.returncode,
+          "stdout": p.stdout.decode(),
+          "stderr": p.stderr.decode()
+        }
+        print(result["stdout"])
+        print(result["stderr"])
         prgm["state"] = "DONE"
       except Exception as e:
         print(f"Error {e}")
@@ -106,7 +117,9 @@ async def start_program(ws, data=None):
       if len(status["programs"]) > 0:
         status["programs"][0]["state"] = 'READY'
       print('\n\nDone\n')
-      await ws.send(json.dumps(status))
+      ret = status.copy()
+      ret["result"] = result
+      await ws.send(json.dumps(ret))
   return status
 
 async def remove_program(ws, data=None):
