@@ -181,8 +181,6 @@ class Sphero(object):
     RAW_MOTOR_MODE_IGNORE = "04"
 
     def __init__(self, addr=None):
-
-
         if(addr == None):
             #search for sphero
             sphero_list = search_for_sphero()

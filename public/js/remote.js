@@ -10,11 +10,6 @@ let _nsix = false;    // If embedded in a nsix challenge
 
 let _currentPrograms = [];
 
-function login() {
-  const current = location.href;
-  location.href = `${NSIX_LOGIN_URL}?dest=${current}`;
-}
-
 function logout() {
   const cookies = ['ember_simple_auth-session', 'ember_simple_auth-session-expiration_time'];
   for (let cookie of cookies) {

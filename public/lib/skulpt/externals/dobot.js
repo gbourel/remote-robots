@@ -28,7 +28,6 @@ function $builtinmodule(name) {
 	}
 
   function move_to(self, x, y, z, r, wait) {
-  	console.info(x, y, z, r, wait);
 	 	_x = x;
 	 	_y = y;
 	 	_z = z;
