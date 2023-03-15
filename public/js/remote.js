@@ -58,8 +58,8 @@ function initClient(){
   });
 }
 
-ws.addHandler('btsender_connected', gui.enableSend);
-ws.addHandler('btsender_disconnected', gui.disableSend);
+ws.addHandler('btsender_connected', (data) => { gui.enableSend(data?.type); });
+ws.addHandler('btsender_disconnected', (data) => { gui.disableSend(data?.type); });
 
 // if in iframe (i.e. nsix challenge)
 _nsix = window.location !== window.parent.location;
