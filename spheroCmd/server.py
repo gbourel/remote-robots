@@ -32,7 +32,7 @@ def initDB():
   cur.execute("""
     CREATE TABLE IF NOT EXISTS programs (
       id integer primary key,
-      studentId integer NOT NULL,
+      studentId character varying(255) NOT NULL,
       student character varying(255),
       state character varying(255),
       program text,
@@ -66,7 +66,8 @@ async def add_program(ws, data=None):
   else:
     data["state"] = "READY"
 
-  r1 = cur.execute(f'SELECT id FROM programs WHERE studentId={data["studentId"]} AND (state="WAITING" OR state="READY");')
+  r1 = cur.execute('SELECT id FROM programs WHERE studentId=? AND (state="WAITING" OR state="READY");',
+    (data["studentId"],))
   existing = r1.fetchone()
   if existing is None :
     val = cur.execute("INSERT INTO programs(studentId, student, state, program) VALUES(?,?,?,?)",
@@ -157,24 +158,29 @@ handlers = {
   'move_down': move_down
 }
 
-async def handler(websocket, path):
+async def msg_handler(websocket, path):
   """Creates websockets handler."""
-  while True:
-    data = await websocket.recv()
-    msg = json.loads(data)
-    res = None
+  running = True
+  while running:
     try:
-      handler = handlers[msg["cmd"]]
-      if "data" in msg:
-        res = await handler(websocket, msg["data"])
-      else:
-        res = await handler(websocket)
-    except Exception as e:
-      print(f"Handler error for command {msg['cmd']}")
-      print(e)
-      res = { 'error': 'command error'}
-    if res:
-      await websocket.send(json.dumps(res))
+      data = await websocket.recv()
+      msg = json.loads(data)
+      res = None
+      try:
+        handler = handlers[msg["cmd"]]
+        if "data" in msg:
+          res = await handler(websocket, msg["data"])
+        else:
+          res = await handler(websocket)
+      except Exception as e:
+        print(f"Handler error for command {msg['cmd']}")
+        print(e)
+        res = { 'error': 'command error'}
+      if res:
+        await websocket.send(json.dumps(res))
+    except websockets.ConnectionClosedOK as cco:
+      print('Client connection closed')
+      running = False
 
 def initSphero():
   """Init sphero status."""
@@ -193,7 +199,7 @@ def initSphero():
   print(f"Sphero status: {status['sphero']}")
 
 initDB()
-start_server = websockets.serve(handler, SERVER_HOST, SERVER_PORT)
+start_server = websockets.serve(msg_handler, SERVER_HOST, SERVER_PORT)
 
 # FIXME add disconnect before status
 # initSphero()

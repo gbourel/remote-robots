@@ -1,4 +1,4 @@
-import { VERSION, NSIX_LOGIN_URL, COOKIE_DOMAIN, debug } from './config.js';
+import { VERSION, NSIX_LOGIN_URL, COOKIE_DOMAIN, AUTH_COOKIE, debug } from './config.js';
 import { sphero, dobot } from './robots.js';
 import gui from './gui.js';
 import ws from './websocket.js';
@@ -11,7 +11,7 @@ let _nsix = false;    // If embedded in a nsix challenge
 let _currentPrograms = [];
 
 function logout() {
-  const cookies = ['ember_simple_auth-session', 'ember_simple_auth-session-expiration_time'];
+  const cookies = [AUTH_COOKIE];
   for (let cookie of cookies) {
     document.cookie=`${cookie}=; domain=${COOKIE_DOMAIN}; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
   }
@@ -19,23 +19,7 @@ function logout() {
 }
 
 function initClient(){
-  // let purl = new URL(window.location.href);
-  // if(purl && purl.searchParams) {
-  //   let index = purl.searchParams.get("command");
-  //   console.info('index', index)
-  //   if(index) {
-  //     _exerciseIdx = index;
-  //   }
-  // }
-  // addEventListener('popstate', evt => {
-  //   if(evt.state && evt.state.level) {
-  //     loadExercises(evt.state.level);
-  //   } else {
-  //     displayMenu();
-  //   }
-  // });
   gui.initClient();
-
 
   ws.loadUser(user => {
     // TODO session cache

@@ -1,6 +1,6 @@
-import { WS_URL, LCMS_URL, debug } from './config.js';
+import { WS_URL, LCMS_URL, AUTH_COOKIE, debug } from './config.js';
 
-const KEEPALIVE_DELAY = 10000; // 10s
+const KEEPALIVE_DELAY = 30000; // 30s
 
 
 class WebSocketCtrl {
@@ -36,37 +36,42 @@ class WebSocketCtrl {
     if (this.#ws && this.#ws.readyState === this.#ws.OPEN) { // already connected
       return cb && cb();
     }
-    let token = await this.#getWSToken();
+    let token = await this.#getAuthToken();
     if (!token) {
       debug('[WS] WS token not found');
       return cb && cb();
     }
-    this.#ws = new WebSocket(WS_URL + '?' + token);
+    this.#ws = new WebSocket(WS_URL + '?token=' + token);
     // On new WS message
     this.#ws.onmessage = (message) => {
       debug(' [WS] message ' + message?.data);
       if (!message) { return; }
       // if message has some data
       if (message.data) {
-        const content = JSON.parse(message.data);
-        // for response messages
-        if (content.event === '__response') {
-          const cb = this.#responseCallbacks[content.src_id];
-          if (cb) { cb(content.data); }
-          delete this.#responseCallbacks[content.src_id];
-        } else {
-          const list = this.#handlers[content.event];
-          if (list) {
-            if(Array.isArray(list)){
-              list.forEach(h => {
-                if (h) { h(content.data); }
-              })
-            } else {
-              list(content.data);
-            }
+        let content = null;
+        try {
+          content = JSON.parse(message.data);
+          // for response messages
+          if (content.event === '__response') {
+            const cb = this.#responseCallbacks[content.src_id];
+            if (cb) { cb(content.data); }
+            delete this.#responseCallbacks[content.src_id];
           } else {
-            debug(' [WS] Missing handler for event', content.event);
+            const list = this.#handlers[content.event];
+            if (list) {
+              if(Array.isArray(list)){
+                list.forEach(h => {
+                  if (h) { h(content.data); }
+                })
+              } else {
+                list(content.data);
+              }
+            } else {
+              debug(' [WS] Missing handler for event:', content.event);
+            }
           }
+        } catch (err) {
+          console.error(' [WS] Unhandled message content:', message.data, err)
         }
       }
     };
@@ -128,7 +133,7 @@ class WebSocketCtrl {
   loadUser(cb) {
     let token = this.#getAuthToken();
     if(token) {
-      const meUrl = LCMS_URL + '/students/profile';
+      const meUrl = LCMS_URL + '/auth/userinfo';
       const req = new Request(meUrl);
       fetch(req, {
         'headers': {
@@ -143,7 +148,7 @@ class WebSocketCtrl {
         }
         return json;
       }).then(data => {
-        this.#user = data.student;
+        this.#user = data;
         cb(this.#user);
       }).catch(err => {
         console.warn('Unable to fetch user', err);
@@ -180,51 +185,17 @@ class WebSocketCtrl {
   #getAuthToken() {
     if(this.#token !== null) { return this.#token; }
     if(document.cookie) {
-      const name = 'ember_simple_auth-session='
+      const name = `${AUTH_COOKIE}=`;
       let cookies = decodeURIComponent(document.cookie).split(';');
       for (let c of cookies) {
         let idx = c.indexOf(name);
         if(idx > -1) {
           let value = c.substring(name.length + idx);
-          let json = JSON.parse(value);
-          if(json.authenticated.access_token) {
-            this.#token = json.authenticated.access_token;
-          }
+          this.#token = value;
         }
       }
     }
     return this.#token;
-  }
-
-  #getWSToken() {
-    return new Promise((resolve, reject) => {
-      let atok = this.#getAuthToken();
-      if(!atok) {
-        debug('[WS] Auth token not found');
-        return resolve(null);
-      }
-      fetch(LCMS_URL + '/api/nsixSignin', {
-        'method': 'POST',
-        'headers': {
-          'Authorization': 'Bearer ' + atok,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      }).then(res => {
-        let json = null;
-        if(res.status === 200) {
-          json = res.json();
-        }
-        return json;
-      }).then(data => {
-        debug('[WS] Signed in ok');
-        resolve(data.token);
-      }).catch(err => {
-        debug('[WS] Unable to fetch token', err);
-        resolve(null);
-      });
-      return null;
-    });
   }
 }
 
