@@ -209,7 +209,7 @@ const gui = {
     let sb = document.getElementById('sendbtn');
     if (sb) {
       sb.disabled = true;
-      sb.innerText='Serveur du professeur non trouvé';
+      sb.innerText='Serveur de commande du robot non trouvé';
       document.getElementById('remoterunbtn').classList.add('hidden');
     }
   },
