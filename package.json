@@ -11,7 +11,7 @@
   },
   "scripts": {
     "connect_sphero": "cd spheroCmd && PYTHONPATH=modules python3 server.py",
-    "dev": "live-server --host=ileauxsciences.test --port=7971 public",
+    "dev": "live-server --host=nsix.test --port=7971 public",
     "start": "run-p --print-label dev"
   }
 }
