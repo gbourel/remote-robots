@@ -13,7 +13,7 @@ let _output = [];     // Current script stdout
 function getProgKey(type){
   let key = type || 'prog'
   if(ws.user) {
-    key += '_' + ws.user.studentId;
+    key += '_' + ws.user.externalId;
   }
   debug('[LS] progkey ' + key)
   return key;
@@ -63,7 +63,7 @@ function sendProgram(){
 
 function remoteRunProgram(){
   if(!ws.user) { return console.error('No current user.'); }
-  debug('[Start] Start program for', ws.user.studentId);
+  debug('[Start] Start program for', ws.user.externalId);
   ws.send('start_program', { 'type': _currentRobot.type }, res => {
     debug('[Start] response', res);
   });
@@ -109,9 +109,10 @@ const gui = {
 
     ws.addHandler('programs_status', (data) => {
       debug('Programs status', JSON.stringify(data, '', ' '));
+      console.info(ws.user, data?.type)
       if (ws.user && data?.type === _currentRobot?.type) {
         let btn = document.getElementById('remoterunbtn');
-        let waitIdx = data.programs.studentIds.indexOf(ws.user.studentId);
+        let waitIdx = data.programs.externalIds.indexOf(ws.user.externalId);
         if (waitIdx < 0) {
           btn.classList.add('hidden');
         } else {
@@ -124,8 +125,7 @@ const gui = {
             btn.disabled = true;
           }
         }
-        if(data?.output && data?.output.studentId === ws.user.studentId) {
-          console.info('REsssssssssssssssssssssultaaaaaaaaaaat');
+        if(data?.output && data?.output.externalId === ws.user.externalId) {
           let parent = document.getElementById('remote-output');
           parent.querySelector('.stdout').innerText = data.output.stdout;
           parent.querySelector('.stderr').innerText = data.output.stderr;
@@ -248,14 +248,14 @@ const gui = {
     let parent = document.getElementById('main-list');
     parent.innerHTML = '';
     debug('[PRGM] Status', status);
-    let prgmStatus = { studentIds: [] }
+    let prgmStatus = { externalIds: [] }
     if(!status.programs || status.programs.length === 0) {
       document.getElementById('empty-msg').classList.remove('hidden');
     } else {
       document.getElementById('empty-msg').classList.add('hidden');
       for (let p of status.programs) {
         debug(' [PRGM] Refresh program', p);
-        prgmStatus.studentIds.push(p.studentId);
+        prgmStatus.externalIds.push(p.studentId);
         let lineTemplate = document.querySelector('#prgm-line');
         let line = document.importNode(lineTemplate.content, true);
         line.querySelector('.name').textContent = p.student;
