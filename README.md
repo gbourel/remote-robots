@@ -24,6 +24,7 @@ Pour le lancement des serveurs de communication avec les robots voir les répert
 
 ## TODO
 
+ * add vite build
  * static check python program on send (client side)
  * feedback for python running error
  * sensors values as CSV
