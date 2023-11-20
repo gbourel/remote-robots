@@ -7,6 +7,8 @@ import sqlite3
 import time
 import sphero
 
+from bluepy.btle import BTLEDisconnectError
+
 SERVER_HOST = "localhost"
 SERVER_PORT = 7007
 
@@ -87,7 +89,6 @@ async def add_program(ws, data=None):
 
 async def start_program(ws, data=None):
   """Start program with provided id."""
-  # print("Data ", data)
   print(f"\nStart program {data['id']} {data['student']}:\n\n")
   for prgm in status["programs"]:
     if prgm["id"] == data["id"]:
@@ -184,25 +185,37 @@ async def msg_handler(websocket, path):
 
 def initSphero():
   """Init sphero status."""
-  orb = sphero.connect()
-  time.sleep(0.2)
+  status['sphero']['connected'] = False
+  while not status['sphero']['connected']:
+    try:
+      orb = sphero.connect()
+      time.sleep(0.5)
 
-  # orb.set_rgb_led(0,40,0, permanent=True)
-  # time.sleep(0.5)
-
-  status['sphero']['name'] = orb.get_device_name()
-  status['sphero']['power'] = orb.get_power_state()
-  # print(orb.get_voltage_trip_points())
-  # max => 845 (8.45V)
-  # 700 => low
-  # 650 => critical low
-  print(f"Sphero status: {status['sphero']}")
+      # orb.set_rgb_led(0,40,0, permanent=True)
+      # time.sleep(0.5)
+      dn = orb.get_device_name()
+      if dn:
+        print(f"  Sphero found: {dn}")
+        status['sphero']['connected'] = True
+        status['sphero']['name'] = dn['name']
+      ps = orb.get_power_state()
+      if ps:
+        print(f"  Power state: {ps}")
+        status['sphero']['battery'] = max(0, ps['batt_voltage']-650)/(845-650)*100
+      # print(orb.get_voltage_trip_points())
+      # max => 845 (8.45V)
+      # 700 => low
+      # 650 => critical low
+      print(f"Sphero status: {status['sphero']}")
+    except BTLEDisconnectError as e:
+      print(f'Bluetooth: unable to connect to Sphero SPRK+\n  {e}')
+      time.sleep(10)
 
 initDB()
 start_server = websockets.serve(msg_handler, SERVER_HOST, SERVER_PORT)
 
 # FIXME add disconnect before status
-# initSphero()
+initSphero()
 
 print("En attente d'un programme...")
 asyncio.get_event_loop().run_until_complete(start_server)

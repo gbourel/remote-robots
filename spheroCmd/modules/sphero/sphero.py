@@ -349,17 +349,6 @@ class Sphero(object):
         name_data["color"] = str(response[33:36],'utf-8')
         return name_data
 
-    def get_power_state(self):
-        seq_num = self._send_command("ff","00","20",[])
-        response = self._notifier.wait_for_resp(seq_num)
-        pwr_data = {}
-        pwr_data["RecVer"] = hex(response[5])
-        pwr_data["PowerState"] = hex(response[6])
-        pwr_data["BattVoltage"] = response[7]*256 + response[8]
-        pwr_data["NumCharges"] = response[9]*256 + response[10]
-        pwr_data["TimeSinceChg"] = response[11]*256 + response[12]
-        return pwr_data
-
     def get_voltage_trip_points(self):
         seq_num = self._send_command("ff","00","23",[])
         response = self._notifier.wait_for_resp(seq_num)
@@ -457,7 +446,6 @@ class Sphero(object):
         ----
         return - a structure with power state values
         """
-
         seq_num = self._send_command("ff","00","20",[])
         resp = self._notifier.wait_for_resp(seq_num)
 

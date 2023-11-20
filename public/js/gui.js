@@ -109,7 +109,6 @@ const gui = {
 
     ws.addHandler('programs_status', (data) => {
       debug('Programs status', JSON.stringify(data, '', ' '));
-      console.info(ws.user, data?.type)
       if (ws.user && data?.type === _currentRobot?.type) {
         let btn = document.getElementById('remoterunbtn');
         let waitIdx = data.programs.externalIds.indexOf(ws.user.externalId);
