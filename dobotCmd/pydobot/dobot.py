@@ -19,7 +19,6 @@ class Dobot:
         if (port == None):
             available_ports = list_ports.comports()
             # TODO debug
-            # print(f'available ports: {[x.device for x in available_ports]}')
             port = available_ports[0].device
 
         self._on = True
@@ -49,6 +48,9 @@ class Dobot:
         msg = Message()
         msg.id = CommunicationProtocolIDs.GET_QUEUED_CMD_CURRENT_INDEX
         response = self._send_command(msg)
+        if not response:
+            print('Missing response !!!!')
+            return -1
         idx = struct.unpack_from('L', response.params, 0)[0]
         return idx
 
