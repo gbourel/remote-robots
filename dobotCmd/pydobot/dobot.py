@@ -313,10 +313,10 @@ class Dobot:
         warnings.warn('go() is deprecated, use move_to() instead')
         self.move_to(x, y, z, r)
 
-    def move_to(self, x, y, z, r, wait=False):
+    def move_to(self, x, y, z, r, wait=True):
         self._set_ptp_cmd(x, y, z, r, mode=PTPMode.MOVL_XYZ, wait=wait)
 
-    def move_j(self, x, y, z, r, wait=False):
+    def move_j(self, x, y, z, r, wait=True):
         self._set_ptp_cmd(x, y, z, r, mode=PTPMode.MOVJ_XYZ, wait=wait)
 
     def suck(self, enable):
