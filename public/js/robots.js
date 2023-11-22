@@ -38,7 +38,8 @@ export const dobot = new Robot(
   'dobot',
   '/#dobot',
   'Programmation du bras robotisé **Dobot magician** :',
-  "import pydobot\n\ndevice = pydobot.Dobot()\n\n(x, y, z, r, j1, j2, j3, j4) = device.pose() # Position du bras\nprint('Coordonnées actuelles: (', x, y, z, ')')\n\ndevice.move_to(x + 40, y, z + 50, r) # Déplace le bras\n(x, y, z, r, j1, j2, j3, j4) = device.pose()\nprint('Coordonnées 2: (', x, y, z, ')')\n\ndevice.move_to(x, y, z, r) # Retour au point de départ\n\n",
+  "import pydobot\n\ndevice = pydobot.Dobot()\n\n(x, y, z, r, j1, j2, j3, j4) = device.pose() # Position du bras\nprint('Coordonnées actuelles: (', x, y, z, ')')\n\ndevice.move_to(90, 0, 0, 0)",
+  // "import pydobot\n\ndevice = pydobot.Dobot()\n\n(x, y, z, r, j1, j2, j3, j4) = device.pose() # Position du bras\nprint('Coordonnées actuelles: (', x, y, z, ')')\n\ndevice.move_to(x + 40, y, z + 50, r) # Déplace le bras\n(x, y, z, r, j1, j2, j3, j4) = device.pose()\nprint('Coordonnées 2: (', x, y, z, ')')\n\ndevice.move_to(x, y, z, r) # Retour au point de départ\n\n",
   {
     './pydobot.js': './lib/skulpt/externals/dobot.js'
   }
