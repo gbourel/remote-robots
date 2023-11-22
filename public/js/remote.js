@@ -10,14 +10,6 @@ let _nsix = false;    // If embedded in a nsix challenge
 
 let _currentPrograms = [];
 
-function logout() {
-  const cookies = [AUTH_COOKIE];
-  for (let cookie of cookies) {
-    document.cookie=`${cookie}=; domain=${COOKIE_DOMAIN}; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-  }
-  location.reload();
-}
-
 function initClient(){
   gui.initClient();
 

@@ -1,4 +1,4 @@
-import { debug, NSIX_LOGIN_URL } from './config.js';
+import { debug, NSIX_LOGIN_URL, AUTH_COOKIE, COOKIE_DOMAIN } from './config.js';
 import { sphero, dobot } from './robots.js';
 import ws from './websocket.js';
 import programs from './programs.js';
@@ -73,6 +73,13 @@ function login() {
   const current = location.href;
   location.href = `${NSIX_LOGIN_URL}?dest=${current}`;
 }
+function logout() {
+  const cookies = [AUTH_COOKIE];
+  for (let cookie of cookies) {
+    document.cookie=`${cookie}=; domain=${COOKIE_DOMAIN}; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  }
+  location.reload();
+}
 
 const gui = {
   hideLoading: () => {
@@ -86,6 +93,7 @@ const gui = {
     });
 
     document.getElementById('logoutBtn').addEventListener('click', logout);
+    document.getElementById('profileMenuBtn').addEventListener('click', logout);
     document.getElementById('checkbtn').addEventListener('click', () => {
       python.runit(_pythonEditor.getValue(), _currentRobot);
     });
@@ -96,7 +104,6 @@ const gui = {
     document.getElementById('login2').addEventListener('click', login);
     document.getElementById('sphero-cmd').addEventListener('click', () => gui.loadCommands(true, sphero));
     document.getElementById('dobot-cmd').addEventListener('click', () => gui.loadCommands(true, dobot));
-    // document.getElementById('profileMenuBtn').addEventListener('click', toggleMenu);
 
     // Save script on keystroke
     document.addEventListener('keyup', evt => {
@@ -124,12 +131,11 @@ const gui = {
             btn.disabled = true;
           }
         }
-        if(data?.output && data?.output.externalId === ws.user.externalId) {
+        if(data?.output && data?.output.studentId === ws.user.externalId) {
           let parent = document.getElementById('remote-output');
           parent.querySelector('.stdout').innerText = data.output.stdout;
           parent.querySelector('.stderr').innerText = data.output.stderr;
           parent.classList.remove('hidden');
-
         }
       }
     });
@@ -218,7 +224,7 @@ const gui = {
       // TODO session cache
       debug('User loaded', user);
 
-      if (user && user.type === 'ENSEIGNANT') {
+      if (user && user.role === 'enseignant') {
         document.getElementById('teachers-only').remove();
       }
 
