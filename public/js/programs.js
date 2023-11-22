@@ -33,6 +33,7 @@ function localConnect(robot){
     document.getElementById('empty-msg').classList.remove('hidden');
     document.getElementById('sphero-connect').classList.add('hidden');
     document.getElementById('dobot-connect').classList.add('hidden');
+    // TODO add home cmd action
     document.getElementById('title').innerHTML = 'Contrôle du robot : ' + robot.type ;
     _localSocket.send(JSON.stringify({'cmd': 'get_status'}));
   }
