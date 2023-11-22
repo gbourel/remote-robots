@@ -13,6 +13,9 @@ SERVER_PORT = 7008
 
 print("Communication avec bras robotisé Dobot")
 
+# TODO vérification que le user appartient au groupe "dialout" ?
+# sudo usermod -a -G dialout $USER
+
 status = {
   'dobot': {},
   'programs': []
@@ -67,7 +70,7 @@ async def add_program(ws, data=None):
   else:
     data["state"] = "READY"
 
-  r1 = cur.execute(f'SELECT id FROM programs WHERE studentId={data["studentId"]} AND (state="WAITING" OR state="READY");')
+  r1 = cur.execute(f'SELECT id FROM programs WHERE studentId="{data["studentId"]}" AND (state="WAITING" OR state="READY");')
   existing = r1.fetchone()
   if existing is None :
     val = cur.execute("INSERT INTO programs(studentId, student, state, program) VALUES(?,?,?,?)",
@@ -181,25 +184,15 @@ async def handler(websocket, path):
 
 def initDobot():
   """Init dobot status."""
-  # orb = sphero.connect()
-  # time.sleep(0.5)
-
-  # orb.set_rgb_led(0,40,0, permanent=True)
-  # time.sleep(0.5)
-
-  # status['sphero']['name'] = orb.get_device_name()
-  # status['sphero']['power'] = orb.get_power_state()
-  # print(orb.get_voltage_trip_points())
-  # # max => 845 (8.45V)
-  # # 700 => low
-  # # 650 => critical low
-  # print(f"Sphero status: {status['sphero']}")
+  with open('remote_prgm.py', 'w') as file:
+    file.write('import pydobot\nd=pydobot.Dobot()\nd.set_home_cmd()')
+  p = subprocess.run(['python3', 'remote_prgm.py'], shell=False, check=False, capture_output=True)
   return
 
 initDB()
 start_server = websockets.serve(handler, SERVER_HOST, SERVER_PORT)
 
-# initSphero()
+initDobot()
 
 print("En attente d'un programme...")
 asyncio.get_event_loop().run_until_complete(start_server)
