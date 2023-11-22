@@ -27,19 +27,24 @@ function $builtinmodule(name) {
 		]);
 	}
 
-  function move_to(self, x, y, z, r, wait) {
+  function suck(self, active) {
+    return;
+  }
+
+  function move_to(self, x, y, z, r) {
 	 	_x = x;
 	 	_y = y;
 	 	_z = z;
 		_r = r;
 		return;
   }
-  move_to.co_varnames = ['self', 'x', 'y', 'z', 'r', 'wait'];
+  move_to.co_varnames = ['self', 'x', 'y', 'z', 'r'];
 
   function DobotWrapper($gbl, $loc) {
     $loc.__init__ = new Sk.builtin.func(initDobot);
     $loc.pose = new Sk.builtin.func(pose);
     $loc.move_to = new Sk.builtin.func(move_to);
+    $loc.suck = new Sk.builtin.func(suck);
   }
 
   mod.Dobot = Sk.misceval.buildClass(mod, DobotWrapper, "Dobot", []);
