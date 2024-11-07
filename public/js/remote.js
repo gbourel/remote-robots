@@ -1,14 +1,11 @@
-import { VERSION, NSIX_LOGIN_URL, COOKIE_DOMAIN, AUTH_COOKIE, debug } from './config.js';
+import { VERSION, debug } from './config.js';
 import { sphero, dobot } from './robots.js';
 import gui from './gui.js';
 import ws from './websocket.js';
 
 document.getElementById('version').textContent = VERSION;
 
-let _pythonEditor = null; // Codemirror editor
 let _nsix = false;    // If embedded in a nsix challenge
-
-let _currentPrograms = [];
 
 function initClient(){
   gui.initClient();
