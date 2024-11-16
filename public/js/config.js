@@ -1,5 +1,5 @@
 
-export const VERSION = 'v0.9.2';
+export const VERSION = 'v0.9.3';
 
 const host = window.location.host;
 export const dev = host.startsWith('localhost') || host.startsWith('nsix.test');
