@@ -45,4 +45,16 @@ export const dobot = new Robot(
   }
 );
 
-export const robots = [sphero, dobot];
+export const moway = new Robot(
+  'ws://localhost:7009',
+  'moway',
+  '/#moway',
+  'Programmation du robot **mOway** :',
+  'import moway\n\nr = moway.connect()\n\nr.move(20)\n',
+  {
+    './moway.js': './lib/skulpt/externals/moway.js'
+  }
+);
+
+
+export const robots = [sphero, dobot, moway];
